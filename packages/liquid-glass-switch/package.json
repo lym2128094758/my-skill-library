@@ -1,0 +1,23 @@
+{
+  "name": "liquid-glass-switch",
+  "version": "1.0.0",
+  "private": false,
+  "description": "A dependency-free, draggable liquid glass segmented switch for the web.",
+  "license": "MIT",
+  "files": [
+    "liquid-controls.js",
+    "liquid-controls.css",
+    "README.md",
+    "demo.html"
+  ],
+  "scripts": {
+    "test": "node --test test.cjs"
+  },
+  "keywords": [
+    "glassmorphism",
+    "segmented-control",
+    "switch",
+    "liquid-glass",
+    "vanilla-js"
+  ]
+}
