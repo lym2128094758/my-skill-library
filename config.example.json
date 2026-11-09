@@ -1,6 +1,6 @@
 {
   "skill_roots": [
-    "%USERPROFILE%/.codex/skills"
+    "~/.codex/skills"
   ],
   "host": "127.0.0.1",
   "port": 8765

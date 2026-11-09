@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / "config.json"
 RELATIONS_PATH = ROOT / "data" / "relations.json"
 RELATIONS_LOCK = threading.Lock()
+API_VERSION = "1.0.0"
+MAX_BODY_BYTES = 65536
 STOP_WORDS = {
     "about", "after", "also", "and", "any", "are", "based", "before", "being",
     "between", "both", "can", "could", "does", "each", "from", "have", "into",
@@ -25,7 +27,17 @@ STOP_WORDS = {
 
 
 def load_config() -> dict:
-    return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    if not CONFIG_PATH.exists():
+        CONFIG_PATH.write_text((ROOT / "config.example.json").read_text(encoding="utf-8"), encoding="utf-8")
+    try:
+        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise OSError("Invalid JSON in config.json") from error
+    if not isinstance(config, dict) or not isinstance(config.get("skill_roots", []), list):
+        raise OSError("Configuration must be an object with a skill_roots array")
+    if any(not isinstance(root, str) or not root for root in config.get("skill_roots", [])):
+        raise OSError("skill_roots must contain non-empty path strings")
+    return config
 
 
 def parse_frontmatter(text: str) -> tuple[str | None, str | None]:
@@ -103,6 +115,8 @@ def scan_skills() -> tuple[list[dict], list[dict]]:
     entries: dict[str, dict] = {}
     for root_value in config.get("skill_roots", []):
         root = Path(os.path.expandvars(root_value)).expanduser()
+        if not root.is_absolute():
+            root = ROOT / root
         if not root.exists() or not root.is_dir():
             continue
         root_resolved = root.resolve()
@@ -169,9 +183,18 @@ def scan_skills() -> tuple[list[dict], list[dict]]:
 
 def read_relations() -> list[dict]:
     try:
-        return json.loads(RELATIONS_PATH.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        relations = json.loads(RELATIONS_PATH.read_text(encoding="utf-8"))
+    except FileNotFoundError:
         return []
+    except json.JSONDecodeError as error:
+        raise OSError("Invalid JSON in manual relations file") from error
+    if not isinstance(relations, list) or any(
+        not isinstance(item, dict) or item.get("kind") != "manual"
+        or not isinstance(item.get("source"), str) or not isinstance(item.get("target"), str)
+        for item in relations
+    ):
+        raise OSError("Invalid manual relations file")
+    return relations
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -179,7 +202,22 @@ class Handler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(ROOT / "web"), **kwargs)
 
     def do_GET(self):
+        try:
+            self.get_resource()
+        except (OSError, ValueError) as error:
+            self.send_json({"ok": False, "error": str(error)}, status=500)
+
+    def get_resource(self):
         parsed = urlparse(self.path)
+        if parsed.path == "/api/health":
+            self.send_json({"ok": True, "api_version": API_VERSION})
+            return
+        if parsed.path == "/api/openapi.json":
+            self.send_json(json.loads((ROOT / "openapi.json").read_text(encoding="utf-8")))
+            return
+        if parsed.path == "/api/relations":
+            self.send_json({"relations": read_relations()})
+            return
         if parsed.path == "/api/skills":
             nodes, edges = scan_skills()
             manual = read_relations()
@@ -187,44 +225,73 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/skill":
             skill_id = parse_qs(parsed.query).get("id", [""])[0]
+            if not skill_id:
+                self.send_json({"ok": False, "error": "Missing id"}, status=400)
+                return
             nodes, _ = scan_skills()
             node = next((item for item in nodes if item["id"] == skill_id), None)
             if not node:
-                self.send_error(404, "Skill not found")
+                self.send_json({"ok": False, "error": "Skill not found"}, status=404)
                 return
             content = Path(node["path"]).read_text(encoding="utf-8", errors="replace")
             self.send_json({"node": node, "content": content})
             return
         if parsed.path.startswith("/api/"):
-            self.send_error(404, "Not found")
+            self.send_json({"ok": False, "error": "Not found"}, status=404)
             return
         super().do_GET()
 
     def do_POST(self):
+        self.change_relation(delete=False)
+
+    def do_DELETE(self):
+        self.change_relation(delete=True)
+
+    def change_relation(self, delete: bool):
         if urlparse(self.path).path != "/api/relations":
-            self.send_error(404, "Not found")
+            self.send_json({"ok": False, "error": "Not found"}, status=404)
             return
         try:
+            if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
+                self.send_json({"ok": False, "error": "Content-Type must be application/json"}, status=415)
+                return
             size = int(self.headers.get("Content-Length", "0"))
+            if not 0 < size <= MAX_BODY_BYTES:
+                self.send_json({"ok": False, "error": "JSON body must be 1 to 65536 bytes"}, status=413 if size > MAX_BODY_BYTES else 400)
+                return
             body = json.loads(self.rfile.read(size))
-            source = str(body["source"])
-            target = str(body["target"])
+            if not isinstance(body, dict):
+                raise ValueError("JSON body must be an object")
+            source = body.get("source")
+            target = body.get("target")
+            if not isinstance(source, str) or not isinstance(target, str) or not source or not target:
+                raise ValueError("source and target must be non-empty strings")
             if source == target:
                 raise ValueError("A skill cannot be linked to itself")
-            nodes, _ = scan_skills()
-            valid_ids = {node["id"] for node in nodes}
-            if source not in valid_ids or target not in valid_ids:
-                raise ValueError("Unknown skill")
+            if not delete:
+                nodes, _ = scan_skills()
+                valid_ids = {node["id"] for node in nodes}
+                if source not in valid_ids or target not in valid_ids:
+                    raise ValueError("Unknown skill")
             left, right = sorted((source, target))
             relation = {"source": left, "target": right, "kind": "manual"}
             with RELATIONS_LOCK:
                 current = read_relations()
-                if relation not in current:
+                changed = relation in current if delete else relation not in current
+                if delete:
+                    current = [item for item in current if item != relation]
+                elif changed:
                     current.append(relation)
-                    RELATIONS_PATH.write_text(json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8")
-            self.send_json({"ok": True, "relation": relation})
+                if changed:
+                    RELATIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
+                    temporary = RELATIONS_PATH.with_suffix(".json.tmp")
+                    temporary.write_text(json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8")
+                    temporary.replace(RELATIONS_PATH)
+            self.send_json({"ok": True, "relation": relation, "changed": changed})
         except (ValueError, KeyError, json.JSONDecodeError) as error:
             self.send_json({"ok": False, "error": str(error)}, status=400)
+        except OSError as error:
+            self.send_json({"ok": False, "error": str(error)}, status=500)
 
     def send_json(self, payload: dict, status: int = 200):
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
