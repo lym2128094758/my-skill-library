@@ -2,6 +2,8 @@
 
 A dependency-free, two-option segmented switch with an Apple-inspired frosted-glass lens. Drag the lens to switch options, including repeated direction changes in one gesture. The lens follows the pointer with a bounded elastic overhang (20 px maximum), then settles onto the active option. It also supports reduced-motion preferences and keyboard-accessible native buttons.
 
+This folder also includes an installable Agent Skill (`SKILL.md`). Coding agents that support the Agent Skills format can use it to adapt the component to their host app or AI coding harness. Agents without skill support can still use the source and integration notes directly from this GitHub folder.
+
 ## Quick start
 
 Copy `liquid-controls.js` and `liquid-controls.css` into your project, then use this markup:
@@ -32,6 +34,10 @@ Override CSS custom properties or the component classes to match your design. Ke
 ## Demo
 
 Open `demo.html` directly in a browser. It demonstrates two independent switches and both light and dark themes.
+
+## Use with an AI coding agent
+
+Give your coding agent this folder or the GitHub link and ask it to install/use the `liquid-glass-switch` skill while adapting the switch to your harness. For platforms that load Agent Skills from a local directory, place this folder in the platform's skills directory. For Claude's uploaded skills, zip this folder so the ZIP contains `liquid-glass-switch/SKILL.md` and the component files. If the agent does not support skills, include `SKILL.md` and `references/harness-porting.md` in the prompt context.
 
 ## Configuration
 

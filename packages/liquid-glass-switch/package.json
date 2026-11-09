@@ -7,6 +7,8 @@
   "files": [
     "liquid-controls.js",
     "liquid-controls.css",
+    "SKILL.md",
+    "references/",
     "README.md",
     "demo.html"
   ],
