@@ -4,7 +4,7 @@
 
 仓库：https://github.com/lym2128094758/my-skill-library
 
-一个在自己电脑上运行的 Skill 浏览器，以类似 Obsidian 的可拖动圆点关系图展示自己的 Skill 库。每个节点对应一个 `SKILL.md`，连线来自正文提及、手动关联或可选的主题推测。点击节点可以查看说明、原文件路径和完整正文。
+一个在自己电脑上运行的 Skill 浏览器，以可切换的二维关系图和三维球体展示自己的 Skill 库。每个节点对应一个 `SKILL.md`，连线来自正文提及、手动关联或可选的主题推测。点击节点可以查看说明、原文件路径和完整正文。
 
 本项目读取已有 Skill 目录，不需要把 Skill 复制进仓库。当前功能是浏览、展示和管理关联；没有执行 Skill、调用模型、安装 Skill、编辑原 Skill 或自动同步云端的接口。
 
@@ -18,7 +18,7 @@ cd my-skill-library
 python server.py
 ```
 
-Windows 也可以双击 `start.bat`。启动后打开 <http://127.0.0.1:8765>，按 Ctrl+C 停止。仓库当前为私有时，克隆需要你的 GitHub 账号有访问权限。
+Windows 双击 `start.bat` 会启动服务并自动打开浏览器；如果服务已经运行，会直接打开页面。保留启动窗口，按 Ctrl+C 停止服务。也可以手动打开 <http://127.0.0.1:8765>。仓库当前为私有时，克隆需要你的 GitHub 账号有访问权限。
 
 第一次启动会从 `config.example.json` 自动创建 `config.json`。默认扫描 `~/.codex/skills`。如果没有节点，先编辑配置，再点击页面右上角刷新按钮。修改监听地址或端口后需要重启服务。
 
@@ -61,14 +61,17 @@ description: 演示自己的 Skill
 ## 3. 页面怎么用
 
 - 拖动圆点移动节点，松开后继续参与力场运动；拖动空白平移，滚轮缩放，右下角按钮重新居中。节点坐标不会保存。
-- 点击节点查看说明、路径、相邻 Skill 和正文；正文以纯文本展示。选择节点后可切换局部图，展开 1–5 层邻居。
+- 图谱顶部可在“平面”和“球体”之间切换。球体可拖动旋转、滚轮缩放、点击查看 Skill；它把现有节点和关系投影到球面上，位置只用于浏览，不代表能力强弱、层级或真实空间距离。搜索、来源筛选、局部图和详情仍使用同一份数据。
+- 单击节点查看说明、路径、相邻 Skill 和正文；正文以纯文本展示。平面和球体均可双击节点进入该 Skill 的局部图，展开 1–5 层邻居；点击空白返回全局。选择节点后也可通过局部图按钮进入。
 - 搜索支持普通关键词、`name:`、`path:`、`source:`、双引号短语和 `-排除词`。例如 `source:个人技能 -name:example`。多条件取交集，不支持正则或 OR。
 - 来源筛选、搜索和连线类型共同决定当前子图；局部图在筛选后的图上查找邻居。“孤立节点”也是按当前可见连线判断。
 - 齿轮设置可调整来源颜色、名称显现阈值、节点大小、连线粗细、引用箭头、中心引力、排斥力、连线强度和距离。
 - 点击“建立关联”，依次点两个节点，保存无向手动关联。删除目前通过 API 或停止服务后编辑 `data/relations.json` 完成。
 - `/` 定位搜索，`Esc` 关闭面板或取消连线，`+`、`-` 缩放，方向键平移，Shift 加速。
 
-浏览器 `localStorage` 保存图谱设置和颜色，键名为 `skill-graph-settings-v2`、`skill-graph-colors-v2`。设置与浏览器来源（协议、地址、端口）绑定，不会保存到服务端。搜索、选中项和隐藏分组不持久化。
+球体单击选中节点后也会持续锁定在可见画布中心，详情面板打开时自动扣除面板占用的宽度。球体局部图保留全局球面坐标，通过镜头放大并以选中节点为旋转中心；退出时恢复进入前的全局镜头。平面局部图保留全局节点坐标，由镜头从节点原位置平滑推近，退出时恢复全局坐标和原镜头；球体使用镜头推进与滑入滑出过渡。两者均遵循系统的减少动态效果设置。
+
+浏览器 `localStorage` 分别保存平面和球体的设置与颜色，键名为 `skill-graph-profile-v3-plane`、`skill-graph-profile-v3-sphere`。切换视图会恢复对应配置，重置仅影响当前视图。旧版本设置会自动用作平面配置，球体从默认配置开始。设置与浏览器来源（协议、地址、端口）绑定，不会保存到服务端。搜索、选中项和隐藏分组不持久化。
 
 ## 4. 图谱里的关系是什么意思
 
@@ -209,16 +212,17 @@ my-skill-library/
 ├─ web/
 │  ├─ index.html             # 页面结构和控件
 │  ├─ styles.css             # 布局和样式
-│  ├─ app.js                 # 数据请求、D3 力场、交互、详情和设置
+│  ├─ app.js                 # 数据请求、D3 力场、视图切换、交互、详情和设置
+│  ├─ sphere.js              # Canvas 球面投影、旋转缩放、命中检测与连线绘制
 │  ├─ graph-model.js         # 搜索、边合并、子图过滤、标签透明度纯函数
 │  └─ vendor/d3.min.js        # 本地 D3
 ├─ tests/                    # 关系推导、HTTP API、图模型测试
 └─ D3-LICENSE.txt            # 第三方 D3 许可与原作者署名
 ```
 
-数据流：`config.json → scan_skills() → 节点 + 正文边 + 主题边 → 合并 data/relations.json → /api/skills → graph-model.js 筛选与合并 → app.js 的 D3 + SVG 渲染`。`/api/skill` 单独按需读取正文。
+数据流：`config.json → scan_skills() → 节点 + 正文边 + 主题边 → 合并 data/relations.json → /api/skills → graph-model.js 筛选与合并 → app.js → D3 + SVG 平面图 / sphere.js + Canvas 球体`。`/api/skill` 单独按需读取正文。
 
-力场使用 D3 的中心方向吸引（forceX / forceY）、节点排斥（forceManyBody）、碰撞避让（forceCollide）和连线弹簧（forceLink）。页面中的圆形点云是动态力场结果，没有固定圆形排布或永久固定节点。
+平面图力场使用 D3 的中心方向吸引（forceX / forceY）、节点排斥（forceManyBody）、碰撞避让（forceCollide）和连线弹簧（forceLink）。球体使用 Canvas 2D 透视投影和确定性的球面点位，无需 WebGL 或额外依赖；两种视图只是同一关系数据的不同可视化，不会修改节点或关系。
 
 修改关系识别请看 `reference_edges()` / `scan_skills()`；修改图谱过滤请看 `graph-model.js`；修改交互和力场请看 `app.js` 的 `configureForces()`、`rebuild()`、`selectNode()`；新增 API 请改 `Handler` 并同步 `openapi.json`、本文和接口测试。
 

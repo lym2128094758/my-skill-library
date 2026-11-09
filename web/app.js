@@ -6,20 +6,45 @@
   const defaults = {showOrphans:true,showMentions:true,showTopics:false,showManual:true,focusOnHover:true,
     showLabels:true,scaleNodes:true,colorBySource:false,showArrows:false,depth:1,labelThreshold:1.1,
     nodeSize:1,linkWidth:.8,centerForce:.04,repelForce:150,linkStrength:.35,linkDistance:90};
-  let settings = {...defaults}, customColors = {};
-  try {
-    const saved = JSON.parse(localStorage.getItem("skill-graph-settings-v2") || "{}");
-    for (const key of Object.keys(defaults)) {
-      if (typeof saved[key] === typeof defaults[key] && (typeof saved[key] !== "number" || Number.isFinite(saved[key]))) settings[key] = saved[key];
-    }
-    const colors = JSON.parse(localStorage.getItem("skill-graph-colors-v2") || "{}");
-    for (const [key,value] of Object.entries(colors)) if (/^#[0-9a-f]{6}$/i.test(value)) customColors[key] = value;
-  } catch {}
+  let graphDimension="plane", sphere=null;
+  let settings, customColors;
+  function viewDefaults(){return {...defaults,colorBySource:graphDimension==="sphere"};}
+  function loadSettings(){
+    settings=viewDefaults();customColors={};
+    try {
+      const profile=JSON.parse(localStorage.getItem("skill-graph-profile-v3-"+graphDimension)||"null");
+      const saved=profile?.settings || (graphDimension==="plane"?JSON.parse(localStorage.getItem("skill-graph-settings-v2")||"{}"):{});
+      const colors=profile?.colors || (graphDimension==="plane"?JSON.parse(localStorage.getItem("skill-graph-colors-v2")||"{}"):{});
+      for(const key of Object.keys(defaults)){
+        if(typeof saved?.[key]===typeof defaults[key]&&(typeof saved[key]!=="number"||Number.isFinite(saved[key])))settings[key]=saved[key];
+      }
+      for(const [key,value] of Object.entries(colors||{}))if(/^#[0-9a-f]{6}$/i.test(value))customColors[key]=value;
+    }catch{}
+  }
+  loadSettings();
   const state = {nodes:[],edges:[],mode:"global",selectedId:null,hoverId:null,hiddenGroups:new Set(),
     nodeCache:new Map(),visibleNodes:[],visibleEdges:[],degree:new Map(),adjacency:new Map(),
     colorMap:new Map(),transform:d3.zoomIdentity,connect:false,first:null,dragging:false,request:0,
     detailController:null,width:0,height:0};
+  const sphereCanvas=$("sphereGraph"),sphereTip=$("sphereTooltip");
+  sphere=SkillSphere.create(sphereCanvas,{wheel:true,center:(w,h)=>{
+    const panel=$("detailPanel"),stage=sphereCanvas.getBoundingClientRect();
+    const overlap=panel.hidden?0:Math.max(0,Math.min(stage.right,panel.getBoundingClientRect().right)-Math.max(stage.left,panel.getBoundingClientRect().left));
+    return {x:Math.max(0,w-overlap)/2,y:h/2};
+  },onHover:(node,point)=>{
+    if(!node){sphereTip.hidden=true;return;}
+    sphereTip.textContent=node.name+" · "+node.group;sphereTip.hidden=false;
+    sphereTip.style.left=Math.max(12,Math.min(sphereCanvas.clientWidth-230,point.x+14))+"px";
+    sphereTip.style.top=Math.max(12,Math.min(sphereCanvas.clientHeight-42,point.y+14))+"px";
+  },onSelect:node=>{if(!node||node.id===state.selectedId)clearSelection();else selectNode(node.id);},
+  onDoubleSelect:node=>{if(node)enterLocal(node.id);}});
   const svg = d3.select("#graph"), layer = d3.select("#zoomLayer");
+  let planeGlobalView=null;
+  function rememberPlaneView(){
+    if(planeGlobalView)return;
+    svg.interrupt();simulation.stop();
+    planeGlobalView={transform:state.transform,positions:new Map([...state.nodeCache].map(([id,n])=>[id,{x:n.x,y:n.y,vx:0,vy:0,fx:n.fx,fy:n.fy}]))};
+  }
   let nodeSelection = d3.select("#nodesLayer").selectAll("g"), linkSelection = d3.select("#linksLayer").selectAll("line");
   const simulation = d3.forceSimulation().stop().velocityDecay(.4).alphaDecay(.035).on("tick", () => {
     tick();
@@ -34,15 +59,19 @@
       updateAppearance();
     });
   svg.call(zoom).on("dblclick.zoom", null).on("click.clear", (event) => {
-    if (!event.target.closest(".graph-node")) { state.hoverId = null; $("nodeTooltip").hidden = true; updateAppearance(); }
+    if(event.defaultPrevented||event.target.closest(".graph-node"))return;
+    if(state.mode==="local"){setConnect(false);clearSelection();return;}
+    state.hoverId=null;$("nodeTooltip").hidden=true;updateAppearance();
   });
 
   function saveSettings() {
-    try { localStorage.setItem("skill-graph-settings-v2",JSON.stringify(settings)); localStorage.setItem("skill-graph-colors-v2",JSON.stringify(customColors)); } catch {}
+    try {localStorage.setItem("skill-graph-profile-v3-"+graphDimension,JSON.stringify({settings,colors:customColors}));}catch{}
   }
   function syncControls() {
+    $("settingsTitle").textContent=graphDimension==="sphere"?"球体设置":"平面设置";
+    document.querySelectorAll("[data-plane-only]").forEach(el=>{el.hidden=graphDimension==="sphere";});
     for (const [key,value] of Object.entries(settings)) {
-      const input = $(key);
+      const input = $(key==="depth"?"depthInput":key);
       if (!input) continue;
       if (input.type === "checkbox") input.checked = value;
       else {
@@ -116,16 +145,45 @@
     for(const id of ["globalTab","globalViewButton"]) $(id).classList.toggle("active",!local);
     for(const id of ["localTab","localViewButton"]) {$(id).classList.toggle("active",local);$(id).disabled=!state.selectedId;}
     $("globalTab").setAttribute("aria-selected",!local);$("localTab").setAttribute("aria-selected",local);
-    const name=state.nodes.find((n)=>n.id===state.selectedId)?.name || "";
-    $("graphTitle").textContent=local?"局部图 · "+name:"关系图谱";
-    $("graphSubtitle").textContent=local?"当前 Skill 的 "+settings.depth+" 层邻居":"拖动节点 · 滚轮缩放 · 点击查看 Skill";
     $("graphSummary").textContent=state.visibleNodes.length+" 个节点 · "+state.visibleEdges.length+" 条关系";
     $("activeFilter").textContent=local?"深度 "+settings.depth:settings.showTopics?"包含推测主题关联":"正文提及与自定义关联";
     $("emptyState").hidden=state.visibleNodes.length>0;
     $("emptyState").querySelector("h3").textContent=state.nodes.length?"没有符合条件的 Skill":"还没有找到 Skill";
     $("emptyState").querySelector("p").textContent=local?"当前 Skill 被筛选条件排除。清除筛选或返回全局图。":"调整搜索词或来源筛选。";
+    if(graphDimension==="sphere"&&sphere){
+      const catalogue=model.filterGraph(state.nodes,state.edges,{...options(),mode:"global"});
+      sphere.setData({nodes:catalogue.nodes.map(n=>({...n,domain:n.group,degree:catalogue.degree.get(n.id)||0,color:colorMapSphere(n)})),
+        edges:catalogue.edges.map(e=>({source:e.source,target:e.target,type:e.kind}))});
+      const visibleIds=new Set(state.visibleNodes.map(n=>n.id));
+      sphere.setFilter(n=>visibleIds.has(n.id));
+      sphere.select(state.selectedId);sphere.highlight(state.hoverId?[state.hoverId]:[]);
+      sphere.local(local?state.selectedId:null);
+      syncSphereAppearance();
+    }
   }
-  function rebuild(fit=false) {
+  function colorMapSphere(node){return settings.colorBySource?(customColors[node.group]||state.colorMap.get(node.group)||"#98e6cf"):"#98e6cf";}
+  function syncSphereAppearance(){
+    sphere.appearance(settings);
+    sphere.labels(settings.showLabels);
+    sphere.setColors(state.visibleNodes.map(n=>[n.id,colorMapSphere(n)]));
+  }
+  function setDimension(value){
+    if(value===graphDimension)return;
+    if(value==="plane"&&state.mode==="local")rememberPlaneView();
+    saveSettings();
+    graphDimension=value;
+    loadSettings();syncControls();buildColors();buildGroups();
+    const spherical=value==="sphere";
+    $("graphStage").classList.toggle("sphere-active",spherical);
+    $("graph").toggleAttribute("hidden",spherical);sphereCanvas.hidden=!spherical;
+    sphere.enable(spherical);sphereTip.hidden=true;$("nodeTooltip").hidden=true;
+    $("planeViewButton").classList.toggle("active",!spherical);$("planeViewButton").setAttribute("aria-pressed",String(!spherical));
+    $("sphereViewButton").classList.toggle("active",spherical);$("sphereViewButton").setAttribute("aria-pressed",String(spherical));
+    $("graphTools").hidden=spherical;$("graphFootnote").hidden=spherical;
+    setConnect(false);rebuild(false);
+    if(spherical){if(state.selectedId)sphere.focus(state.selectedId);sphereCanvas.focus({preventScroll:true});}
+  }
+  function rebuild(fit=false,animate=false,preserveLayout=false) {
     simulation.stop(); state.hoverId=null; $("nodeTooltip").hidden=true;
     const result=model.filterGraph(state.nodes,state.edges,options());
     state.degree=result.degree;
@@ -154,6 +212,7 @@
       .on("focus",(event,n)=>{state.hoverId=n.id;updateAppearance();})
       .on("blur",()=>{state.hoverId=null;updateAppearance();})
       .on("click",(event,n)=>{event.stopPropagation();if(state.connect)connectClick(n);else selectNode(n.id);})
+      .on("dblclick",(event,n)=>{event.preventDefault();event.stopPropagation();if(!state.connect)enterLocal(n.id);})
       .on("keydown",(event,n)=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();selectNode(n.id);}});
     nodeSelection.call(d3.drag().clickDistance(4).filter((event)=>!event.button&&!state.connect)
       .on("start",(event,n)=>{
@@ -167,8 +226,11 @@
     simulation.force("link",null).nodes(state.visibleNodes);
     configureForces(false);
     if(state.visibleNodes.length){
-      if(fit){simulation.alpha(.9).tick(180);tick();fitGraph(false);}
-      simulation.alpha(fit?.10:.25).restart();
+      const keepPositions=preserveLayout||(graphDimension==="plane"&&state.mode==="local"&&planeGlobalView);
+      if(fit&&!keepPositions)simulation.alpha(.9).tick(180);
+      tick();
+      if(fit&&graphDimension==="plane")fitGraph(animate);
+      if(graphDimension==="plane"&&!keepPositions)simulation.alpha(fit?.10:.25).restart();
     }
     syncHeader();buildSkillList();updateAppearance();
   }
@@ -180,7 +242,7 @@
       .force("collide",d3.forceCollide((n)=>radius(n)+5).iterations(2))
       .force("link",d3.forceLink(state.visibleEdges).id((n)=>n.id).distance(settings.linkDistance)
         .strength((e)=>settings.linkStrength*(e.kind==="topic"?.35:1)));
-    if(restart) simulation.alpha(.45).restart();
+    if(restart&&graphDimension==="plane") simulation.alpha(.45).restart();
   }
   function tick() {
     linkSelection.each(function(e){
@@ -193,6 +255,7 @@
     nodeSelection.attr("transform",(n)=>"translate("+n.x+","+n.y+")");
   }
   function updateAppearance() {
+    if(graphDimension==="sphere")syncSphereAppearance();
     const k=state.transform.k,hover=state.hoverId;
     const neighbors=state.adjacency.get(hover)||new Set();
     nodeSelection.classed("selected",(n)=>n.id===state.selectedId)
@@ -234,16 +297,20 @@
   }
   function fitGraph(animate=true) {
     if(!state.visibleNodes.length)return;
-    const nodes=state.visibleNodes,w=state.width,h=state.height;
+    animate=animate&&!matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const stage=$("graphStage").getBoundingClientRect(),panel=$("detailPanel");
+    const overlap=panel.hidden?0:Math.max(0,Math.min(stage.right,panel.getBoundingClientRect().right)-Math.max(stage.left,panel.getBoundingClientRect().left));
+    const nodes=state.visibleNodes,w=Math.max(140,state.width-overlap),h=state.height;
     const x0=d3.min(nodes,(n)=>n.x),x1=d3.max(nodes,(n)=>n.x),y0=d3.min(nodes,(n)=>n.y),y1=d3.max(nodes,(n)=>n.y);
     const k=Math.max(.15,Math.min(1.7,(w-110)/Math.max(140,x1-x0+50),(h-170)/Math.max(140,y1-y0+50)));
     const transform=d3.zoomIdentity.translate(w/2-k*(x0+x1)/2,(h+25)/2-k*(y0+y1)/2).scale(k);
-    svg.interrupt();(animate?svg.transition().duration(260):svg).call(zoom.transform,transform);
+    svg.interrupt();(animate?svg.transition().duration(550).ease(d3.easeCubicInOut):svg).call(zoom.transform,transform);
   }
   async function selectNode(id) {
     if(!state.nodes.some((n)=>n.id===id))return;
     state.selectedId=id;state.hoverId=null;$("settingsPanel").hidden=true;$("detailPanel").hidden=false;
-    if(state.mode==="local")rebuild(true);
+    if(graphDimension==="sphere"&&state.mode!=="local")sphere.focus(id);
+    if(state.mode==="local")rebuild(true,true);
     syncHeader();updateAppearance();buildSkillList();
     const n=state.nodes.find((n)=>n.id===id);
     $("detailName").textContent=n.name;$("detailGroup").textContent=n.group;
@@ -266,7 +333,49 @@
       const data=await response.json();if(state.selectedId===id)$("detailContent").textContent=data.content;
     }catch(error){if(error.name!=="AbortError"&&state.selectedId===id)$("detailContent").textContent=error.message;}
   }
-  function setMode(mode) {if(mode==="local"&&!state.selectedId)return;state.mode=mode;rebuild(true);}
+  function animateScope(entering){
+    if(graphDimension==="plane")return;
+    const stage=$("graphStage"),surface=graphDimension==="sphere"?sphereCanvas:$("graph");
+    stage.querySelectorAll(".scope-ghost").forEach(el=>el.remove());
+    surface.getAnimations().forEach(a=>a.cancel());
+    if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+    const ghost=graphDimension==="sphere"?document.createElement("img"):surface.cloneNode(true);
+    if(graphDimension==="sphere")ghost.src=sphereCanvas.toDataURL();
+    ghost.removeAttribute("id");ghost.querySelectorAll("[id]").forEach(el=>el.removeAttribute("id"));
+    ghost.classList.add("scope-ghost");ghost.setAttribute("aria-hidden","true");stage.append(ghost);
+    const direction=entering?1:-1,opts={duration:550,easing:"cubic-bezier(.22,.61,.36,1)"};
+    const outgoing=ghost.animate([{opacity:1,transform:"translateX(0)"},{opacity:0,transform:`translateX(${-direction*65}px)`}],opts);
+    outgoing.onfinish=()=>ghost.remove();
+    surface.animate([{opacity:0,transform:`translateX(${direction*65}px)`},{opacity:1,transform:"translateX(0)"}],opts);
+  }
+  function enterLocal(id){
+    if(!state.nodes.some(n=>n.id===id))return;
+    if(graphDimension==="plane")rememberPlaneView();
+    if(state.mode!=="local"||state.selectedId!==id)animateScope(true);
+    state.mode="local";selectNode(id);
+    $("detailPanel").hidden=graphDimension!=="plane";
+  }
+  function clearSelection(){
+    const wasLocal=state.mode==="local";
+    if(wasLocal)animateScope(false);
+    const savedPlane=planeGlobalView;
+    if(wasLocal&&savedPlane){
+      for(const [id,position] of savedPlane.positions){const node=state.nodeCache.get(id);if(node)Object.assign(node,position);}
+    }
+    state.detailController?.abort();state.selectedId=null;state.hoverId=null;state.mode="global";
+    $("detailPanel").hidden=true;sphereTip.hidden=true;$("nodeTooltip").hidden=true;
+    sphere.select(null);sphere.highlight([]);rebuild(wasLocal&&!savedPlane,wasLocal,!!savedPlane);
+    if(wasLocal&&savedPlane){
+      planeGlobalView=null;
+      svg.interrupt();
+      const animate=graphDimension==="plane"&&!matchMedia("(prefers-reduced-motion: reduce)").matches;
+      (animate?svg.transition().duration(550).ease(d3.easeCubicInOut):svg).call(zoom.transform,savedPlane.transform);
+    }
+  }
+  function setMode(mode) {
+    if(mode==="global"){clearSelection();return;}
+    if(state.selectedId)enterLocal(state.selectedId);
+  }
   function setConnect(active) {
     state.connect=active;state.first=null;$("connectHint").hidden=!active;
     $("connectHint").firstChild.textContent="依次点击两个节点来建立关联 ";
@@ -285,13 +394,18 @@
   $("refreshButton").addEventListener("click",loadLibrary);
   $("settingsButton").addEventListener("click",()=>{$("settingsPanel").hidden=!$("settingsPanel").hidden;$("detailPanel").hidden=true;});
   $("closeSettings").addEventListener("click",()=>{$("settingsPanel").hidden=true;});
-  $("closeDetail").addEventListener("click",()=>{$("detailPanel").hidden=true;});
-  $("resetSettings").addEventListener("click",()=>{settings={...defaults};customColors={};syncControls();saveSettings();buildColors();buildGroups();rebuild(true);});
+  $("closeDetail").addEventListener("click",()=>{
+    $("detailPanel").hidden=true;
+    if(graphDimension==="plane"&&state.mode==="local")fitGraph(true);
+  });
+  $("resetSettings").addEventListener("click",()=>{settings=viewDefaults();customColors={};syncControls();saveSettings();buildColors();buildGroups();rebuild(true);});
   let searchTimer;
   $("searchInput").addEventListener("input",()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>rebuild(true),150);});
   $("searchInput").title='支持 name:、path:、source:、"短语" 和 -排除词';
   for(const id of ["globalTab","globalViewButton"])$(id).addEventListener("click",()=>setMode("global"));
   for(const id of ["localTab","localViewButton"])$(id).addEventListener("click",()=>setMode("local"));
+  $("planeViewButton").addEventListener("click",()=>setDimension("plane"));
+  $("sphereViewButton").addEventListener("click",()=>setDimension("sphere"));
   $("showLocalButton").addEventListener("click",()=>{$("detailPanel").hidden=true;setMode("local");});
   $("clearFilters").addEventListener("click",()=>{state.hiddenGroups.clear();$("searchInput").value="";buildGroups();rebuild(true);});
   $("copyPathButton").addEventListener("click",async()=>{
@@ -305,7 +419,7 @@
   const filters=new Set(["showOrphans","showMentions","showTopics","showManual","depth"]);
   const forces=new Set(["centerForce","repelForce","linkStrength","linkDistance"]);
   for(const key of Object.keys(defaults)){
-    const input=$(key);if(!input)continue;
+    const input=$(key==="depth"?"depthInput":key);if(!input)continue;
     input.addEventListener(input.type==="checkbox"?"change":"input",()=>{
       settings[key]=input.type==="checkbox"?input.checked:Number(input.value);
       if($(key+"Output"))$(key+"Output").value=String(settings[key]);
@@ -316,9 +430,10 @@
     });
   }
   document.addEventListener("keydown",(event)=>{
-    if(event.key==="Escape"){state.detailController?.abort();$("detailPanel").hidden=true;$("settingsPanel").hidden=true;setConnect(false);return;}
+    if(event.key==="Escape"){state.detailController?.abort();$("detailPanel").hidden=true;$("settingsPanel").hidden=true;setConnect(false);if(graphDimension==="sphere")clearSelection();return;}
     if(event.target.closest("input,textarea,select,[contenteditable]"))return;
     if(event.key==="/"){event.preventDefault();$("searchInput").focus();}
+    if(graphDimension==="sphere")return;
     if(event.key==="+"||event.key==="="){event.preventDefault();zoomBy(1.2);}
     if(event.key==="-"){event.preventDefault();zoomBy(.83);}
     const directions={ArrowLeft:[1,0],ArrowRight:[-1,0],ArrowUp:[0,1],ArrowDown:[0,-1]};
@@ -332,7 +447,8 @@
       const width=$("graphStage").clientWidth,height=$("graphStage").clientHeight;
       if(!state.visibleNodes.length||!state.width)return;
       if(Math.abs(width-state.width)<2&&Math.abs(height-state.height)<2)return;
-      state.width=width;state.height=height;configureForces();fitGraph(false);
+      state.width=width;state.height=height;
+      if(graphDimension==="plane"){configureForces();fitGraph(false);}
     },120);
   }).observe($("graphStage"));
   syncControls();loadLibrary();
