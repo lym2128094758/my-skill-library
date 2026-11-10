@@ -321,3 +321,11 @@ node --check web/app.js
 交互参考 [Obsidian Graph View](https://help.obsidian.md/plugins/graph) 的全局/局部图、孤立节点、分组、悬停聚焦和可调力场。实现结构参考公开的 [Quartz Community Graph](https://github.com/quartz-community/graph)：[`Graph.tsx`](https://github.com/quartz-community/graph/blob/main/src/components/Graph.tsx)、[`graph.inline.ts`](https://github.com/quartz-community/graph/blob/main/src/components/scripts/graph.inline.ts)、[`graph.scss`](https://github.com/quartz-community/graph/blob/main/src/components/styles/graph.scss)。应用代码独立编写。
 
 D3 随项目本地提供，保留 MIT 许可与原作者信息，见 [D3-LICENSE.txt](D3-LICENSE.txt)。项目作者署名为 lym2128094758；第三方依赖保留其原有署名。本仓库尚未为应用代码选择开源许可证。
+
+#### 在 DSH 插件搜索中查找
+
+在 DSH「插件 → Discover/发现」中添加这个索引源一次：
+
+`https://raw.githubusercontent.com/lym2128094758/my-skill-library/main/dsh/index.json`
+
+之后搜索「我的 Skill 图谱」或 `dsh-my-skill-library`，从搜索结果安装。若尚未启用 Discover，请先在「插件 → Experimental plugins」启用 Custom plugin indexes。

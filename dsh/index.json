@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "title": {"en": "My Skill Library", "zh": "我的 Skill 图谱"},
+  "description": {"en": "Search and browse local Agent Skills in an interactive 2D and 3D graph.", "zh": "在二维与三维交互图谱中搜索和浏览当前 Agent 的本地 Skill。"},
+  "plugins": [
+    {
+      "name": "dsh-my-skill-library",
+      "title": {"en": "My Skill Library", "zh": "我的 Skill 图谱"},
+      "description": {"en": "Browse and search the current DSH profile local Agent Skills in an interactive graph. Includes a native panel, 2D network and 3D sphere.", "zh": "在交互图谱中搜索和浏览当前 DSH 配置的本地 Agent Skills，提供原生面板、二维关系网和三维球体。"},
+      "author": "lym2128094758",
+      "homepage": "https://github.com/lym2128094758/my-skill-library",
+      "repository": {"url": "https://github.com/lym2128094758/my-skill-library"},
+      "versions": [
+        {
+          "version": "1.2.1",
+          "publishTimestamp": 1794286713,
+          "source": {"type": "git", "url": "https://github.com/lym2128094758/my-skill-library", "commit": "33215ba3888a974179560e6203e18e1add12da07"}
+        }
+      ]
+    }
+  ]
+}
