@@ -1,4 +1,6 @@
 - insert:
+    - id: my-skill-library-panel
+      name: dsh-my-skill-library
     - id: my-skill-library-mcp
       name: '@deepseek-ai/dsh-mcp-client'
       config:

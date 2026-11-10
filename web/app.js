@@ -1,6 +1,8 @@
 (() => {
   "use strict";
   const $ = (id) => document.getElementById(id);
+  const requestLibrary = window.skillLibraryFetch ?? window.fetch.bind(window);
+  const storage = () => window.skillLibraryStorage ?? window.localStorage;
   const model = window.SkillGraphModel;
   const palette = ["#718f7f","#8c9fb5","#bf9279","#a78baf","#7d9fa1","#b4a36f","#8297b3","#a88787","#7d9a81"];
   const defaults = {showOrphans:true,showMentions:true,showTopics:false,showManual:true,focusOnHover:true,
@@ -12,9 +14,9 @@
   function loadSettings(){
     settings=viewDefaults();customColors={};
     try {
-      const profile=JSON.parse(localStorage.getItem("skill-graph-profile-v3-"+graphDimension)||"null");
-      const saved=profile?.settings || (graphDimension==="plane"?JSON.parse(localStorage.getItem("skill-graph-settings-v2")||"{}"):{});
-      const colors=profile?.colors || (graphDimension==="plane"?JSON.parse(localStorage.getItem("skill-graph-colors-v2")||"{}"):{});
+      const profile=JSON.parse(storage().getItem("skill-graph-profile-v3-"+graphDimension)||"null");
+      const saved=profile?.settings || (graphDimension==="plane"?JSON.parse(storage().getItem("skill-graph-settings-v2")||"{}"):{});
+      const colors=profile?.colors || (graphDimension==="plane"?JSON.parse(storage().getItem("skill-graph-colors-v2")||"{}"):{});
       for(const key of Object.keys(defaults)){
         if(typeof saved?.[key]===typeof defaults[key]&&(typeof saved[key]!=="number"||Number.isFinite(saved[key])))settings[key]=saved[key];
       }
@@ -94,7 +96,7 @@
   });
 
   function saveSettings() {
-    try {localStorage.setItem("skill-graph-profile-v3-"+graphDimension,JSON.stringify({settings,colors:customColors}));}catch{}
+    try {storage().setItem("skill-graph-profile-v3-"+graphDimension,JSON.stringify({settings,colors:customColors}));}catch{}
   }
   function syncControls() {
     $("settingsTitle").textContent=graphDimension==="sphere"?"球体设置":"平面设置";
@@ -123,7 +125,7 @@
     $("refreshButton").disabled = true;
     $("scanStatus").textContent = "正在扫描 Skill…";
     try {
-      const response = await fetch("/api/skills",{cache:"no-store"});
+      const response = await requestLibrary("/api/skills",{cache:"no-store"});
       if (!response.ok) throw new Error("读取失败 ("+response.status+")");
       const data = await response.json();
       if (version !== state.request) return;
@@ -370,7 +372,7 @@
     state.detailController?.abort();state.detailController=new AbortController();
     $("detailContent").textContent="正在读取 Skill 文件…";
     try {
-      const response=await fetch("/api/skill?id="+encodeURIComponent(id),{signal:state.detailController.signal});
+      const response=await requestLibrary("/api/skill?id="+encodeURIComponent(id),{signal:state.detailController.signal});
       if(!response.ok)throw new Error("无法读取 Skill 文件");
       const data=await response.json();if(state.selectedId===id)$("detailContent").textContent=data.content;
     }catch(error){if(error.name!=="AbortError"&&state.selectedId===id)$("detailContent").textContent=error.message;}
@@ -427,7 +429,7 @@
     if(!state.first){state.first=n.id;$("connectHint").firstChild.textContent="已选「"+n.name+"」，再点击另一个 Skill ";updateAppearance();return;}
     if(state.first===n.id){setConnect(false);return;}
     try{
-      const response=await fetch("/api/relations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({source:state.first,target:n.id})});
+      const response=await requestLibrary("/api/relations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({source:state.first,target:n.id})});
       if(!response.ok)throw new Error("保存关联失败");
       setConnect(false);await loadLibrary();
     }catch(error){$("graphSummary").textContent=error.message;}

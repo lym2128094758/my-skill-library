@@ -10,9 +10,9 @@
 
 ## 作为插件安装
 
-插件带有完整的 Skill 库和原来的网页图谱。安装后对客户端说「打开我的 Skill 图谱」，它会通过 MCP 在本机浏览器打开二维／三维图谱。也可以直接请客户端搜索 Skill、查看详情或邻居、列出手动关联、添加或删除指定关联。
+插件带有完整的 Skill 库和二维／三维图谱。对支持 MCP Apps 的桌面客户端说「打开我的 Skill 图谱」，图谱会显示在软件内的交互面板中，可在面板内切换二维／三维、搜索、查看详情、配置显示和建立关联。全屏按钮会向宿主申请应用内展开。
 
-插件需要 Python 3.10+，并要求客户端可以从 `PATH` 启动 `python`。服务和文件扫描在客户端所在的本机运行，网页默认地址为 `http://127.0.0.1:18765`。
+插件需要 Python 3.10+，并要求客户端可以从 `PATH` 启动 `python`。面板的 HTML、CSS、D3 和图谱脚本随插件打包，数据通过宿主的 MCP 通道读写。后台本机服务使用 `127.0.0.1:18765`。
 
 ### Codex
 
@@ -23,6 +23,14 @@ codex plugin add my-skill-library@my-skill-library-marketplace
 
 也可在 Codex 的插件目录选择 **My Skill Library** 市场并安装，之后开始新对话。
 
+本机 Codex 的 `enable_mcp_apps` 功能标为实验性，默认关闭。如要试用面板，在 PowerShell 执行 `codex features enable enable_mcp_apps`，完全退出并重开 Codex。实际显示取决于该版本桌面端的 MCP App 渲染支持，命令行终端仅显示工具结果。
+
+### Claude Desktop 应用内图谱
+
+在 [GitHub Releases](https://github.com/lym2128094758/my-skill-library/releases/tag/v1.1.0) 下载 `my-skill-library-1.1.0.mcpb`，到 Claude Desktop 的「设置 → 扩展 → 高级设置 → 安装扩展」选择这个文件。安装后开始新对话，说「打开我的 Skill 图谱」。面板通过 MCP Apps 渲染。Claude Desktop 扩展与下面的 Claude Code 插件分别安装。
+
+也可在源码目录执行 `python scripts/package_plugin.py --output ./dist` 自行生成扩展包。打包脚本只收集运行所需的程序和前端资源。
+
 ### Claude Code
 
 ```sh
@@ -30,7 +38,7 @@ claude plugin marketplace add lym2128094758/my-skill-library
 claude plugin install my-skill-library@my-skill-library-marketplace
 ```
 
-重启会话后可以直接描述需求，或输入 `/my-skill-library:my-skill-library`。
+重启会话后可以直接描述需求，或输入 `/my-skill-library:my-skill-library`。Claude Code 的终端界面提供工具调用，图形面板使用 Claude Desktop 的扩展入口。
 
 ### DeepSeek Harness（DSH）
 
@@ -38,7 +46,7 @@ claude plugin install my-skill-library@my-skill-library-marketplace
 dsh plugin --profile web add git+https://github.com/lym2128094758/my-skill-library.git
 ```
 
-在 DSH Desktop 的插件页面也可添加上述 GitHub 仓库地址。Bundle 会在该配置中注册 MCP 工具。
+在 DSH Desktop 的插件页面也可添加上述 GitHub 仓库地址。安装后重启软件，点击右下角 **Skill 图谱**，即可在 DSH 窗口里的独立面板操作完整图谱。原生面板使用 `127.0.0.1:18765`，插件负责启动后台服务，面板关闭时会保留服务，卸载插件时会释放它。首次扫描目录较多时，等待片刻即可。
 
 ### 其他支持 MCP 的本地客户端
 
@@ -47,10 +55,10 @@ dsh plugin --profile web add git+https://github.com/lym2128094758/my-skill-libra
 ### 本机配置与旧数据
 
 - 插件默认扫描 `~/.codex/skills`、`~/.agents/skills`、`~/.claude/skills` 和 `~/.dsh/skills`。首次使用生成 `~/.my-skill-library/config.json`，修改其中的 `skill_roots` 即可增减目录。
-- 三个客户端默认共用 `~/.my-skill-library/data/relations.json`。要迁移旧图谱，可以把旧项目的 `config.json` 和 `data/relations.json` 分别复制到插件目录的对应位置。配置中的相对扫描路径需改为绝对路径，或改成相对于新配置文件的路径。浏览器的显示偏好按网址独立保存。
-- 如需换数据目录或端口，在各客户端的 MCP 进程环境里统一设置 `SKILL_LIBRARY_HOME` 或 `SKILL_LIBRARY_PORT`。首次调用工具的进程启动网页服务。关闭该进程后，在还打开的客户端里重新调用打开图谱即可。也可从仓库运行 `python mcp_server.py --web`，让网页服务随终端运行。
+- 三个客户端默认共用 `~/.my-skill-library/data/relations.json`。要迁移旧图谱，可以把旧项目的 `config.json` 和 `data/relations.json` 分别复制到该数据目录的对应位置。配置中的相对扫描路径需改为绝对路径，或改成相对于新配置文件的路径。显示偏好在宿主允许存储时保存在面板来源下，宿主隔离存储时只保留到该面板关闭。
+- 如需换数据目录，在各客户端环境里统一设置 `SKILL_LIBRARY_HOME`。MCP App 客户端可通过 `SKILL_LIBRARY_PORT` 改后台端口，DSH 原生面板固定使用 18765。关闭服务进程后，在还打开的 MCP App 客户端里刷新图谱即可重新启动服务。独立网页仍可通过 `python mcp_server.py --web` 启动。
 
-MCP 工具有 `open_skill_graph`、`search_skills`、`get_skill`、`get_skill_neighbors`、`list_manual_relations` 和 `set_manual_relation`。读取完整正文时，正文会作为工具结果交给当前客户端。
+MCP 工具有 `open_skill_graph`、`search_skills`、`get_skill`、`get_skill_neighbors`、`list_manual_relations` 和 `set_manual_relation`，以及面板专用的 `graph_snapshot`。读取完整正文时，正文会作为工具结果交给当前客户端。
 
 ## 1. 直接启动
 

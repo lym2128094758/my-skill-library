@@ -6,7 +6,6 @@ import hashlib
 import json
 import os
 import socket
-import subprocess
 import sys
 import threading
 import time
@@ -17,9 +16,10 @@ from urllib.parse import urlencode
 from urllib.request import ProxyHandler, Request, build_opener
 
 import server
+import mcp_ui
 
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 PROTOCOLS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
 IDENTITY_HEADER = "X-My-Skill-Library"
 OPENER = build_opener(ProxyHandler({}))
@@ -138,8 +138,12 @@ TEXT = {"type": "string"}
 ID = {"type": "string", "minLength": 1}
 TOOLS = {
     "open_skill_graph": (
-        "Open the full interactive 2D/3D Skill Library in the local browser and return its URL.",
-        schema({"open_browser": {"type": "boolean", "default": True}}),
+        "Show the full interactive 2D/3D Skill Library as an in-app panel. No external browser is launched.",
+        schema(),
+    ),
+    "graph_snapshot": (
+        "Load the complete graph for the Skill Library app view.",
+        schema(),
     ),
     "search_skills": (
         "List or search local skills by name, description, path or source. Use offset and limit to page.",
@@ -188,20 +192,11 @@ def validate_arguments(arguments, spec):
 
 
 def call_tool(library, name, args):
-    library.ensure_running()
     if name == "open_skill_graph":
-        opened = False
-        if args.get("open_browser", True):
-            try:
-                child = subprocess.run(
-                    [sys.executable, "-c", "import sys, webbrowser; sys.exit(not webbrowser.open(sys.argv[1]))", library.url],
-                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), timeout=5,
-                )
-                opened = child.returncode == 0
-            except (OSError, subprocess.TimeoutExpired):
-                pass
-        return {"url": library.url, "opened": opened}
+        return {"message": "The Skill Library graph is available in the app panel on hosts that render MCP Apps."}
+    library.ensure_running()
+    if name == "graph_snapshot":
+        return library.request("/api/skills")
     if name == "get_skill":
         return library.request("/api/skill?" + urlencode({"id": args["id"]}))
     if name == "list_manual_relations":
@@ -245,19 +240,33 @@ def dispatch(library, method, params):
         requested = params.get("protocolVersion")
         return {
             "protocolVersion": requested if requested in PROTOCOLS else PROTOCOLS[0],
-            "capabilities": {"tools": {}},
+            "capabilities": {"tools": {}, "resources": {}},
             "serverInfo": {"name": "my-skill-library", "version": VERSION},
         }
     if method == "ping":
         return {}
+    if method == "resources/list":
+        return {"resources": [mcp_ui.RESOURCE]}
+    if method == "resources/templates/list":
+        return {"resourceTemplates": []}
+    if method == "resources/read":
+        if params.get("uri") != mcp_ui.URI:
+            raise ValueError("Unknown resource URI.")
+        return {"contents": [{**mcp_ui.RESOURCE, "text": mcp_ui.graph_html(),
+                              "_meta": {"ui": {"prefersBorder": True}}}]}
     if method == "tools/list":
-        return {"tools": [
-            {"name": name, "description": description, "inputSchema": spec,
-             "annotations": {"readOnlyHint": name not in ("open_skill_graph", "set_manual_relation"),
-                             "destructiveHint": name == "set_manual_relation",
-                             "openWorldHint": False}}
-            for name, (description, spec) in TOOLS.items()
-        ]}
+        tools = []
+        for name, (description, spec) in TOOLS.items():
+            tool = {"name": name, "description": description, "inputSchema": spec,
+                    "annotations": {"readOnlyHint": name != "set_manual_relation",
+                                    "destructiveHint": name == "set_manual_relation",
+                                    "openWorldHint": False}}
+            if name == "open_skill_graph":
+                tool["_meta"] = {"ui": {"resourceUri": mcp_ui.URI}}
+            elif name == "graph_snapshot":
+                tool["_meta"] = {"ui": {"visibility": ["app"]}}
+            tools.append(tool)
+        return {"tools": tools}
     name = params.get("name")
     args = params.get("arguments", {})
     if not isinstance(name, str) or name not in TOOLS:
@@ -265,6 +274,12 @@ def dispatch(library, method, params):
     validate_arguments(args, TOOLS[name][1])
     try:
         result = call_tool(library, name, args)
+        if name == "open_skill_graph":
+            return {"content": [{"type": "text", "text": result["message"]}],
+                    "_meta": {"ui": {"resourceUri": mcp_ui.URI}}}
+        if name == "graph_snapshot":
+            return {"content": [{"type": "text", "text": "Skill Library graph snapshot."}],
+                    "structuredContent": result}
         return {"content": [{"type": "text", "text": json.dumps(result, ensure_ascii=False)}]}
     except (OSError, ValueError) as error:
         return {"content": [{"type": "text", "text": str(error)}], "isError": True}
@@ -282,7 +297,8 @@ def respond(library, line):
         return None  # Notifications do not get responses.
     response["id"] = request["id"]
     method, params = request.get("method"), request.get("params", {})
-    if method not in ("initialize", "ping", "tools/list", "tools/call"):
+    if method not in ("initialize", "ping", "tools/list", "tools/call",
+                      "resources/list", "resources/read", "resources/templates/list"):
         return dict(response, error={"code": -32601, "message": "Method not found"})
     try:
         if not isinstance(params, dict):
@@ -294,6 +310,14 @@ def respond(library, line):
 
 def main():
     library = Library()
+    if sys.argv[1:] == ["--serve"]:
+        try:
+            library.ensure_running()
+            print(library.url, flush=True)
+            sys.stdin.buffer.read()
+        finally:
+            library.close()
+        return
     if sys.argv[1:] == ["--web"]:
         with library.bind() as http:
             print(library.url, flush=True)
