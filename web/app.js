@@ -40,6 +40,35 @@
   onDoubleSelect:node=>{if(node)enterLocal(node.id);}});
   const svg = d3.select("#graph"), layer = d3.select("#zoomLayer");
   let planeGlobalView=null;
+  let dimensionMorph=null,sphereMotion=null;
+  function finishDimensionMorph(){
+    dimensionMorph?.cancel();dimensionMorph=null;
+    $("graphStage").classList.remove("dimension-morphing");
+    if(sphereMotion!==null){sphere.pause(sphereMotion);sphereMotion=null;}
+  }
+  function planeGeometry(){
+    const transform=state.transform,k=transform.k;
+    const positions=new Map(state.visibleNodes.map(n=>[n.id,{x:n.x*k+transform.x,y:n.y*k+transform.y}]));
+    const hex=value=>{const rgb=value.match(/[\d.]+/g);return rgb?'#'+rgb.slice(0,3).map(v=>Math.round(Number(v)).toString(16).padStart(2,'0')).join(''):value;};
+    const renderedNodes=new Map(),renderedEdges=new Map();
+    nodeSelection.each(function(n){renderedNodes.set(n.id,this);});
+    linkSelection.each(function(e){renderedEdges.set(e.key,this);});
+    return {sphere:0,nodes:state.visibleNodes.map(n=>{
+      const point=positions.get(n.id),el=renderedNodes.get(n.id),core=el.querySelector('.node-core'),label=el.querySelector('text');
+      const textStyle=getComputedStyle(label),coreStyle=getComputedStyle(core);
+      return {...point,id:n.id,name:n.name,radius:Number(core.getAttribute('r'))*k,color:hex(coreStyle.fill),alpha:Number(getComputedStyle(el).opacity),selected:false,
+        labelX:point.x,labelY:point.y+Number(label.getAttribute('dy')||0)*k,labelAlign:.5,
+        labelSize:parseFloat(textStyle.fontSize)*k,labelFamily:textStyle.fontFamily,
+        labelAlpha:textStyle.display==='none'?0:Number(textStyle.opacity)};
+    }),
+      edges:state.visibleEdges.map(e=>{
+        const el=renderedEdges.get(e.key),style=getComputedStyle(el);
+        const a={x:Number(el.getAttribute('x1'))*k+transform.x,y:Number(el.getAttribute('y1'))*k+transform.y};
+        const b={x:Number(el.getAttribute('x2'))*k+transform.x,y:Number(el.getAttribute('y2'))*k+transform.y};
+        return {id:e.key,kind:e.kind,color:hex(style.stroke),width:parseFloat(style.strokeWidth),alpha:Number(style.opacity)*Number(style.strokeOpacity),
+          path:Array.from({length:17},(_,i)=>({x:a.x+(b.x-a.x)*i/16,y:a.y+(b.y-a.y)*i/16,alpha:1}))};
+      })};
+  }
   function rememberPlaneView(){
     if(planeGlobalView)return;
     svg.interrupt();simulation.stop();
@@ -169,6 +198,11 @@
   }
   function setDimension(value){
     if(value===graphDimension)return;
+    svg.interrupt();simulation.stop();
+    const from=dimensionMorph?dimensionMorph.snapshot():graphDimension==="plane"?planeGeometry():sphere.geometry();
+    dimensionMorph?.cancel();dimensionMorph=null;
+    if(sphereMotion===null)sphereMotion=sphere.snapshot().paused;
+    sphere.pause(true);
     if(value==="plane"&&state.mode==="local")rememberPlaneView();
     saveSettings();
     graphDimension=value;
@@ -180,10 +214,18 @@
     $("planeViewButton").classList.toggle("active",!spherical);$("planeViewButton").setAttribute("aria-pressed",String(!spherical));
     $("sphereViewButton").classList.toggle("active",spherical);$("sphereViewButton").setAttribute("aria-pressed",String(spherical));
     $("graphTools").hidden=spherical;$("graphFootnote").hidden=spherical;
-    setConnect(false);rebuild(false);
+    setConnect(false);rebuild(false,false,true);
+    if(!spherical&&state.mode==="local")fitGraph(false);
     if(spherical){if(state.selectedId)sphere.focus(state.selectedId);sphereCanvas.focus({preventScroll:true});}
+    if(matchMedia("(prefers-reduced-motion: reduce)").matches){finishDimensionMorph();return;}
+    const to=spherical?sphere.geometry(true):planeGeometry();
+    $("graphStage").classList.add("dimension-morphing");
+    dimensionMorph=SkillViewMorph.run($("graphStage"),from,to,finishDimensionMorph,()=>{
+      $("graphStage").classList.remove("dimension-morphing");
+    });
   }
   function rebuild(fit=false,animate=false,preserveLayout=false) {
+    if(dimensionMorph)finishDimensionMorph();
     simulation.stop(); state.hoverId=null; $("nodeTooltip").hidden=true;
     const result=model.filterGraph(state.nodes,state.edges,options());
     state.degree=result.degree;

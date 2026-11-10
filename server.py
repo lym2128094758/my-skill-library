@@ -12,6 +12,7 @@ from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / "config.json"
+CONFIG_TEMPLATE = None
 RELATIONS_PATH = ROOT / "data" / "relations.json"
 RELATIONS_LOCK = threading.Lock()
 API_VERSION = "1.0.0"
@@ -28,7 +29,9 @@ STOP_WORDS = {
 
 def load_config() -> dict:
     if not CONFIG_PATH.exists():
-        CONFIG_PATH.write_text((ROOT / "config.example.json").read_text(encoding="utf-8"), encoding="utf-8")
+        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        template = CONFIG_TEMPLATE or ROOT / "config.example.json"
+        CONFIG_PATH.write_text(template.read_text(encoding="utf-8"), encoding="utf-8")
     try:
         config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
@@ -116,7 +119,7 @@ def scan_skills() -> tuple[list[dict], list[dict]]:
     for root_value in config.get("skill_roots", []):
         root = Path(os.path.expandvars(root_value)).expanduser()
         if not root.is_absolute():
-            root = ROOT / root
+            root = CONFIG_PATH.parent / root
         if not root.exists() or not root.is_dir():
             continue
         root_resolved = root.resolve()

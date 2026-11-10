@@ -1,0 +1,12 @@
+{
+  "name": "my-skill-library-marketplace",
+  "description": "The complete local Skill Library and its 2D/3D graph.",
+  "owner": { "name": "lym2128094758" },
+  "plugins": [
+    {
+      "name": "my-skill-library",
+      "source": "./",
+      "description": "Search local skills and open the full interactive 2D/3D relationship graph."
+    }
+  ]
+}

@@ -61,11 +61,53 @@ kbd { padding: 1px 5px; border: 1px solid #ececea; border-radius: 3px; color: #a
 .graph-heading > * { pointer-events: auto; }
 .graph-heading h2 { margin: 4px 0 2px; font-size: 15px; font-weight: 560; letter-spacing: -.015em; }
 .graph-heading p { margin: 0; color: #a0a19c; font-size: 10px; }
-.view-controls { display: flex; align-items: center; gap: 7px; }
+.view-controls { display: flex; align-items: center; gap: 10px; }
 .graph-heading .view-controls { margin-left: auto; }
-.view-switch { display: flex; gap: 2px; border: 1px solid #e8e9e6; border-radius: 6px; padding: 2px; background: rgba(255,255,255,.88); }
-.view-button { border: 0; border-radius: 4px; padding: 5px 12px; color: #999b95; background: transparent; cursor: pointer; font-size: 10px; }
-.view-button.active { background: #f0f2ef; color: #485a50; font-weight: 600; }
+/* A shared glass capsule with one moving selection lens. */
+.view-switch {
+  position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px;
+  padding:4px;border:1px solid rgba(255,255,255,.48);border-radius:999px;isolation:isolate;
+  background:linear-gradient(180deg,rgba(229,232,234,.72),rgba(212,217,221,.55));
+  -webkit-backdrop-filter:blur(18px) saturate(115%);backdrop-filter:blur(18px) saturate(115%);
+  box-shadow:0 5px 18px rgba(0,0,0,.08),inset 0 1px 1px rgba(255,255,255,.75),inset 0 -1px 1px rgba(85,91,95,.12);
+  touch-action:none;user-select:none;-webkit-user-select:none;overflow:visible;
+}
+.view-lens {
+  position:absolute;left:0;top:4px;height:calc(100% - 8px);border-radius:999px;pointer-events:none;z-index:0;
+  background:linear-gradient(180deg,rgba(255,255,255,.82),rgba(255,255,255,.48));
+  box-shadow:0 1px 4px rgba(0,0,0,.1),inset 0 1px 1px rgba(255,255,255,.95),inset 0 -1px 1px rgba(126,133,139,.18);
+  -webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);will-change:transform;
+  transition:background .25s,box-shadow .25s;
+}
+.view-lens::after {
+  content:'';position:absolute;inset:0;border-radius:inherit;border:1px solid rgba(255,255,255,.25);
+  mask-image:linear-gradient(135deg,#000,transparent 38%,transparent 62%,#000);
+  -webkit-mask-image:linear-gradient(135deg,#000,transparent 38%,transparent 62%,#000);
+}
+.view-button {
+  position:relative;z-index:1;min-width:48px;min-height:32px;padding:6px 15px;border:0;border-radius:999px;
+  color:#707579;background:transparent;cursor:pointer;font-size:11px;line-height:1.2;font-weight:500;
+  transition:color .2s,transform .2s;-webkit-tap-highlight-color:transparent;
+}
+.view-button.active { color:#232629;font-weight:600; }
+.view-button:hover:not(:disabled) { color:#232629; }
+.view-button:active:not(:disabled) { transform:scale(.94); }
+.view-button:focus-visible { outline:2px solid #9ba7b1;outline-offset:1px; }
+.graph-shell:has(.sphere-active) .view-switch {
+  border-color:rgba(255,255,255,.13);
+  background:linear-gradient(180deg,rgba(80,82,84,.43),rgba(59,61,63,.4));
+  box-shadow:0 6px 20px rgba(0,0,0,.18),inset 0 1px 1px rgba(255,255,255,.17),inset 0 -1px 1px rgba(255,255,255,.08);
+}
+.graph-shell:has(.sphere-active) .view-lens {
+  background:linear-gradient(180deg,rgba(10,12,14,.52),rgba(16,18,20,.4));
+  box-shadow:0 1px 3px rgba(0,0,0,.15),inset 0 1px 1px rgba(255,255,255,.09),inset 0 -1px 1px rgba(255,255,255,.05);
+}
+.graph-shell:has(.sphere-active) .view-lens::after { border-color:rgba(255,255,255,.12); }
+.graph-shell:has(.sphere-active) .view-button { color:rgba(240,241,242,.7); }
+.graph-shell:has(.sphere-active) .view-button.active,
+.graph-shell:has(.sphere-active) .view-button:hover:not(:disabled) { color:#f5f5f6; }
+.view-switch.is-dragging .view-lens { box-shadow:0 2px 10px rgba(0,0,0,.16),inset 0 1px 1px rgba(255,255,255,.3),inset 0 -1px 1px rgba(255,255,255,.12); }
+@media(prefers-reduced-motion:reduce) { .view-button,.view-lens { transition:none; } }
 .graph-stage { position: relative; flex: 1; min-height: 0; overflow: hidden; background-image: radial-gradient(#d9ddd8 0.65px, transparent 0.65px); background-size: 21px 21px; }
 .graph-stage::before { position: absolute; inset: 0; pointer-events: none; content: ""; background: radial-gradient(ellipse at center, rgba(255,255,255,0) 40%, rgba(250,250,249,.45) 100%); }
 .graph-stage.sphere-active { background: radial-gradient(ellipse at center, #12313b 0%, #091f29 66%, #071923 100%); }
@@ -74,6 +116,9 @@ kbd { padding: 1px 5px; border: 1px solid #ececea; border-radius: 3px; color: #a
 #sphereGraph { position: absolute; inset: 0; width: 100%; height: 100%; outline: none; touch-action: none; cursor: grab; }
 #sphereGraph:active { cursor: grabbing; }
 .scope-ghost { position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1; }
+.dimension-morph { position:absolute;inset:0;width:100%;height:100%;z-index:2; }
+.dimension-morphing #graph,.dimension-morphing #sphereGraph { visibility:hidden; }
+.graph-shell:has(.dimension-morphing) .graph-heading { z-index:3; }
 .sphere-tooltip { position: absolute; z-index: 3; max-width: 230px; padding: 7px 9px; overflow: hidden; border: 1px solid rgba(126,153,143,.28); border-radius: 5px; color: #526359; background: rgba(255,255,255,.96); box-shadow: 0 3px 12px #20352a12; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; pointer-events: none; }
 .graph-link { stroke: #d8dcd9; stroke-width: 1; stroke-opacity: .75; vector-effect: non-scaling-stroke; }
 .graph-link.topic { stroke-dasharray: 2.5 3.5; stroke-opacity: .55; }

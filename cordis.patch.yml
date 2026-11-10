@@ -1,0 +1,10 @@
+- insert:
+    - id: my-skill-library-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: my-skill-library
+        transport: stdio
+        command: python
+        args:
+          - -B
+          - !!js process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('dsh-my-skill-library/mcp_server.py')

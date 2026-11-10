@@ -1,0 +1,8 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "my-skill-library",
+  "version": "1.0.0",
+  "description": "Browse, search and connect local Agent Skills in an interactive 2D and 3D graph.",
+  "author": { "name": "lym2128094758" },
+  "repository": "https://github.com/lym2128094758/my-skill-library"
+}

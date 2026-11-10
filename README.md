@@ -8,6 +8,50 @@
 
 本项目读取已有 Skill 目录，不需要把 Skill 复制进仓库。当前功能是浏览、展示和管理关联；没有执行 Skill、调用模型、安装 Skill、编辑原 Skill 或自动同步云端的接口。
 
+## 作为插件安装
+
+插件带有完整的 Skill 库和原来的网页图谱。安装后对客户端说「打开我的 Skill 图谱」，它会通过 MCP 在本机浏览器打开二维／三维图谱。也可以直接请客户端搜索 Skill、查看详情或邻居、列出手动关联、添加或删除指定关联。
+
+插件需要 Python 3.10+，并要求客户端可以从 `PATH` 启动 `python`。服务和文件扫描在客户端所在的本机运行，网页默认地址为 `http://127.0.0.1:18765`。
+
+### Codex
+
+```sh
+codex plugin marketplace add lym2128094758/my-skill-library
+codex plugin add my-skill-library@my-skill-library-marketplace
+```
+
+也可在 Codex 的插件目录选择 **My Skill Library** 市场并安装，之后开始新对话。
+
+### Claude Code
+
+```sh
+claude plugin marketplace add lym2128094758/my-skill-library
+claude plugin install my-skill-library@my-skill-library-marketplace
+```
+
+重启会话后可以直接描述需求，或输入 `/my-skill-library:my-skill-library`。
+
+### DeepSeek Harness（DSH）
+
+```sh
+dsh plugin --profile web add git+https://github.com/lym2128094758/my-skill-library.git
+```
+
+在 DSH Desktop 的插件页面也可添加上述 GitHub 仓库地址。Bundle 会在该配置中注册 MCP 工具。
+
+### 其他支持 MCP 的本地客户端
+
+克隆仓库，然后配置 stdio MCP 服务，命令填 `python`，参数填 `-B` 和 `mcp_server.py` 的绝对路径。如果系统只提供 `python3`，可用 `python3` 作为手动配置的命令。
+
+### 本机配置与旧数据
+
+- 插件默认扫描 `~/.codex/skills`、`~/.agents/skills`、`~/.claude/skills` 和 `~/.dsh/skills`。首次使用生成 `~/.my-skill-library/config.json`，修改其中的 `skill_roots` 即可增减目录。
+- 三个客户端默认共用 `~/.my-skill-library/data/relations.json`。要迁移旧图谱，可以把旧项目的 `config.json` 和 `data/relations.json` 分别复制到插件目录的对应位置。配置中的相对扫描路径需改为绝对路径，或改成相对于新配置文件的路径。浏览器的显示偏好按网址独立保存。
+- 如需换数据目录或端口，在各客户端的 MCP 进程环境里统一设置 `SKILL_LIBRARY_HOME` 或 `SKILL_LIBRARY_PORT`。首次调用工具的进程启动网页服务。关闭该进程后，在还打开的客户端里重新调用打开图谱即可。也可从仓库运行 `python mcp_server.py --web`，让网页服务随终端运行。
+
+MCP 工具有 `open_skill_graph`、`search_skills`、`get_skill`、`get_skill_neighbors`、`list_manual_relations` 和 `set_manual_relation`。读取完整正文时，正文会作为工具结果交给当前客户端。
+
 ## 1. 直接启动
 
 需要 Python 3.10+ 和现代浏览器。后端只用 Python 标准库，前端是原生 JavaScript、SVG 和已随仓库提供的 D3，不需要 Node.js、npm install 或前端构建。
@@ -70,6 +114,10 @@ description: 演示自己的 Skill
 - `/` 定位搜索，`Esc` 关闭面板或取消连线，`+`、`-` 缩放，方向键平移，Shift 加速。
 
 球体单击选中节点后也会持续锁定在可见画布中心，详情面板打开时自动扣除面板占用的宽度。球体局部图保留全局球面坐标，通过镜头放大并以选中节点为旋转中心；退出时恢复进入前的全局镜头。平面局部图保留全局节点坐标，由镜头从节点原位置平滑推近，退出时恢复全局坐标和原镜头；球体使用镜头推进与滑入滑出过渡。两者均遵循系统的减少动态效果设置。
+
+顶部玻璃切换条支持按住滑块拖动：滑块朝另一端移动达到约 70% 后，自动播放一次完整的切换动画；达到阈值前画面保持原视图，松手后滑块回到原位。按住来回拖动可连续切换：每次跨过另一侧 70% 的阈值重新触发，反向使用对应的 30% 阈值，避免在中间抖动。动画尚未结束时反向切换，会从当前中间形态立即转向最新目标；滑块可弹性伸出底座，玻璃边缘最大越界约 20px，拖动时横向拉伸最多 4%，继续拖动会增加阻力，松手自动回弹；全局/局部及平面/球体两组均适用。未选择 Skill 时局部入口保持禁用。
+
+二维和球体之间按节点 ID 进行连续变形：节点从当前屏幕坐标移动到对应球面坐标，关系线同步由直线弯成球面弧线，反向切换回到原二维位置。两套设置导致的显示差异通过淡入淡出衔接；动画期间再次切换会从当前中间形态继续。
 
 浏览器 `localStorage` 分别保存平面和球体的设置与颜色，键名为 `skill-graph-profile-v3-plane`、`skill-graph-profile-v3-sphere`。切换视图会恢复对应配置，重置仅影响当前视图。旧版本设置会自动用作平面配置，球体从默认配置开始。设置与浏览器来源（协议、地址、端口）绑定，不会保存到服务端。搜索、选中项和隐藏分组不持久化。
 

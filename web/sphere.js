@@ -151,6 +151,25 @@
       highlight(ids){highlight=new Set(ids||[]);schedule();},
       states(values){states=new Map(values||[]);schedule();},
       position(id){const n=by.get(id);return n?camera(n.p):null;},
+      geometry(settle=false){
+        resize();
+        if(settle&&cameraTween){({yaw,pitch,zoom,anchorMix}=cameraTween.to);cameraTween=null;}
+        const focus=selected||(style.focusOnHover?hover:null),neighbors=new Set(focus?[focus]:[]);
+        if(focus)for(const e of edges){if(e.source===focus)neighbors.add(e.target);if(e.target===focus)neighbors.add(e.source);}
+        const visible=nodes.filter(filter),ids=new Set(visible.map(n=>n.id));
+        return {sphere:1,nodes:visible.map(n=>{
+          const p=camera(n.p),hot=neighbors.has(n.id)||highlight.has(n.id);
+          return {id:n.id,name:n.name,x:p.x,y:p.y,radius:(hot?4.2:1.65)*style.nodeSize*(style.scaleNodes?Math.min(2,1+Math.sqrt(n.degree||0)*.08):1)*p.k,
+            color:n.color,alpha:Math.max(.18,Math.min(1,.18+.82*(p.z+1)/2))*((focus||highlight.size)&&!hot?.16:1),selected:n.id===selected,
+            labelX:p.x+8,labelY:p.y-8,labelAlign:0,labelSize:11,labelFamily:'Microsoft YaHei,sans-serif',
+            labelAlpha:showLabels&&(hot||zoom>style.labelThreshold+.4)?1:0};
+        }),edges:edges.filter(e=>ids.has(e.source)&&ids.has(e.target)).map(e=>{
+          const hot=neighbors.has(e.source)&&neighbors.has(e.target)||highlight.has(e.source)&&highlight.has(e.target);
+          return {id:[e.source,e.target].sort().join(':'),kind:e.type,color:hot?'#b9efcd':e.type==='manual'?'#86d8bb':'#8bbce5',
+            width:(hot?1.35:.55)*style.linkWidth/.8,alpha:e.type==='topic'&&!hot?0:hot?.68:e.type==='manual'?.125:.102,
+            path:e.path.map(v=>{const p=camera(v);return {x:p.x,y:p.y,alpha:p.z<(pinId?-2.1:-.25)?0:1};})};
+        })};
+      },
       local,
       select(id){selected=by.has(id)?id:null;if(!selected){hover=null;highlight.clear();options.onHover?.(null);if(pinId&&!localId){pinId=null;moveCamera({... (globalCamera||{yaw,pitch,zoom:1}),anchorMix:0});globalCamera=null;}}schedule();},
       focus(id){const n=by.get(id);if(!n||localId)return;const p=n.p;if(!globalCamera)globalCamera={yaw,pitch,zoom};anchor={...p};pinId=id;selected=id;moveCamera({yaw:yaw+Math.atan2(Math.sin(Math.atan2(-p.x,p.z)-yaw),Math.cos(Math.atan2(-p.x,p.z)-yaw)),pitch:Math.atan2(p.y,Math.hypot(p.x,p.z)),zoom,anchorMix:1});},

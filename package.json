@@ -1,0 +1,20 @@
+{
+  "name": "dsh-my-skill-library",
+  "version": "1.0.0",
+  "description": "Browse local Agent Skills in an interactive 2D/3D graph from DeepSeek Harness.",
+  "repository": "https://github.com/lym2128094758/my-skill-library",
+  "keywords": ["dsh-plugin", "agent-skills", "mcp"],
+  "files": [
+    "cordis.patch.yml",
+    "mcp_server.py",
+    "server.py",
+    "config.example.json",
+    "plugin-config.example.json",
+    "openapi.json",
+    "D3-LICENSE.txt",
+    "web/"
+  ],
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" }
+  }
+}
