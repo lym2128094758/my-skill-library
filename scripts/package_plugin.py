@@ -7,7 +7,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
 FILES = (
-    "manifest.json", "mcp_server.py", "mcp_ui.py", "server.py",
+    "manifest.json", "mcp_server.py", "mcp_ui.py", "server.py", "skill_discovery.py",
     "config.example.json", "plugin-config.example.json", "openapi.json", "D3-LICENSE.txt",
 )
 

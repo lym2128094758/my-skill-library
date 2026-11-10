@@ -1,7 +1,6 @@
 {
-  "skill_roots": [
-    "~/.codex/skills"
-  ],
+  "discovery": "agent",
+  "skill_roots": [],
   "host": "127.0.0.1",
   "port": 8765
 }

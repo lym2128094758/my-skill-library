@@ -1,8 +1,4 @@
 {
-  "skill_roots": [
-    "~/.codex/skills",
-    "~/.agents/skills",
-    "~/.claude/skills",
-    "~/.dsh/skills"
-  ]
+  "discovery": "agent",
+  "skill_roots": []
 }

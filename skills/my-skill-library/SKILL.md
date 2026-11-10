@@ -14,3 +14,5 @@ Use the bundled My Skill Library MCP tools when the user asks to browse their lo
 - Use `list_manual_relations` to inspect saved links. Use `set_manual_relation` with the relevant IDs only when the user requests adding or removing a link. A manual link does not change a skill file or remove any automatically inferred relationship.
 
 The library runs on the user's machine. Report tool errors directly.
+
+Skill discovery follows the current host agent and the installer's local home and project directories. Use the discovery metadata returned by search to explain which host and directories are being scanned. If no directories are found, help locate the user's own host skill files or explicitly configure manual discovery. A missing host library should produce an empty graph.

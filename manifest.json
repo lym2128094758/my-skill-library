@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "my-skill-library",
   "display_name": "我的 Skill 图谱",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Browse your local skills in an interactive 2D/3D graph inside Claude Desktop.",
   "author": { "name": "lym2128094758" },
   "server": {
@@ -10,7 +10,8 @@
     "entry_point": "mcp_server.py",
     "mcp_config": {
       "command": "python",
-      "args": ["-B", "${__dirname}/mcp_server.py"]
+      "args": ["-B", "${__dirname}/mcp_server.py"],
+      "env": {"SKILL_LIBRARY_AGENT": "claude-desktop"}
     }
   }
 }

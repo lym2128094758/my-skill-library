@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "my-skill-library": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["-B", "${CLAUDE_PLUGIN_ROOT}/mcp_server.py"],
+      "env": {"SKILL_LIBRARY_AGENT": "codex"}
+    }
+  }
+}

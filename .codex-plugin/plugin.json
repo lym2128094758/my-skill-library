@@ -1,9 +1,9 @@
 {
   "name": "my-skill-library",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Open the 2D/3D Skill graph and browse, search or connect local skills.",
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
+  "mcpServers": "./.mcp.codex.json",
   "interface": {
     "displayName": "My Skill Library",
     "shortDescription": "Browse your local Skill graph",

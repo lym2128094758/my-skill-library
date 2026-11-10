@@ -12,7 +12,7 @@
 
 插件带有完整的 Skill 库和二维／三维图谱。对支持 MCP Apps 的桌面客户端说「打开我的 Skill 图谱」，图谱会显示在软件内的交互面板中，可在面板内切换二维／三维、搜索、查看详情、配置显示和建立关联。全屏按钮会向宿主申请应用内展开。
 
-插件需要 Python 3.10+，并要求客户端可以从 `PATH` 启动 `python`。面板的 HTML、CSS、D3 和图谱脚本随插件打包，数据通过宿主的 MCP 通道读写。后台本机服务使用 `127.0.0.1:18765`。
+插件需要 Python 3.10+，并要求客户端可以从 `PATH` 启动 `python`。面板的 HTML、CSS、D3 和图谱脚本随插件打包，数据通过宿主的 MCP 通道读写。各平台的安装清单会传入当前 agent 的标识，再根据安装者的用户目录和环境变量发现 Skill。
 
 ### Codex
 
@@ -27,7 +27,7 @@ codex plugin add my-skill-library@my-skill-library-marketplace
 
 ### Claude Desktop 应用内图谱
 
-在 [GitHub Releases](https://github.com/lym2128094758/my-skill-library/releases/tag/v1.1.0) 下载 `my-skill-library-1.1.0.mcpb`，到 Claude Desktop 的「设置 → 扩展 → 高级设置 → 安装扩展」选择这个文件。安装后开始新对话，说「打开我的 Skill 图谱」。面板通过 MCP Apps 渲染。Claude Desktop 扩展与下面的 Claude Code 插件分别安装。
+在 [GitHub Releases](https://github.com/lym2128094758/my-skill-library/releases/tag/v1.2.0) 下载 `my-skill-library-1.2.0.mcpb`，到 Claude Desktop 的「设置 → 扩展 → 高级设置 → 安装扩展」选择这个文件。安装后开始新对话，说「打开我的 Skill 图谱」。面板通过 MCP Apps 渲染。Claude Desktop 扩展与下面的 Claude Code 插件分别安装。
 
 也可在源码目录执行 `python scripts/package_plugin.py --output ./dist` 自行生成扩展包。打包脚本只收集运行所需的程序和前端资源。
 
@@ -46,17 +46,22 @@ claude plugin install my-skill-library@my-skill-library-marketplace
 dsh plugin --profile web add git+https://github.com/lym2128094758/my-skill-library.git
 ```
 
-在 DSH Desktop 的插件页面也可添加上述 GitHub 仓库地址。安装后重启软件，点击右下角 **Skill 图谱**，即可在 DSH 窗口里的独立面板操作完整图谱。原生面板使用 `127.0.0.1:18765`，插件负责启动后台服务，面板关闭时会保留服务，卸载插件时会释放它。首次扫描目录较多时，等待片刻即可。
+在 DSH Desktop 的插件页面也可添加上述 GitHub 仓库地址。安装后重启软件，点击右下角 **Skill 图谱**，即可在 DSH 窗口里的独立面板操作完整图谱。原生面板使用 `127.0.0.1:18769`，插件负责启动后台服务，面板关闭时会保留服务，卸载插件时会释放它。首次扫描目录较多时，等待片刻即可。
 
 ### 其他支持 MCP 的本地客户端
 
-克隆仓库，然后配置 stdio MCP 服务，命令填 `python`，参数填 `-B` 和 `mcp_server.py` 的绝对路径。如果系统只提供 `python3`，可用 `python3` 作为手动配置的命令。
+克隆仓库，然后配置 stdio MCP 服务，命令填 `python`，参数填 `-B` 和 `mcp_server.py` 的绝对路径。MCP 初始化时尝试从客户端名称识别 agent；也可以在 MCP 服务环境中明确设置 `SKILL_LIBRARY_AGENT`，可选 `codex`、`claude-code`、`claude-desktop` 或 `dsh`。如果系统只提供 `python3`，可用 `python3` 作为手动配置的命令。
 
 ### 本机配置与旧数据
 
-- 插件默认扫描 `~/.codex/skills`、`~/.agents/skills`、`~/.claude/skills` 和 `~/.dsh/skills`。首次使用生成 `~/.my-skill-library/config.json`，修改其中的 `skill_roots` 即可增减目录。
-- 三个客户端默认共用 `~/.my-skill-library/data/relations.json`。要迁移旧图谱，可以把旧项目的 `config.json` 和 `data/relations.json` 分别复制到该数据目录的对应位置。配置中的相对扫描路径需改为绝对路径，或改成相对于新配置文件的路径。显示偏好在宿主允许存储时保存在面板来源下，宿主隔离存储时只保留到该面板关闭。
-- 如需换数据目录，在各客户端环境里统一设置 `SKILL_LIBRARY_HOME`。MCP App 客户端可通过 `SKILL_LIBRARY_PORT` 改后台端口，DSH 原生面板固定使用 18765。关闭服务进程后，在还打开的 MCP App 客户端里刷新图谱即可重新启动服务。独立网页仍可通过 `python mcp_server.py --web` 启动。
+- Codex 读取当前用户的 `CODEX_HOME/skills`（默认 `~/.codex/skills`）、`~/.agents/skills` 和项目祖先目录里的 `.agents/skills`、`.codex/skills`。
+- Claude 读取当前用户的 `CLAUDE_CONFIG_DIR/skills`（默认 `~/.claude/skills`）；Claude Code 还读取项目祖先目录里的 `.claude/skills`。Claude Desktop 云端技能需要先由宿主落地到本机 Skill 文件，才能出现在本地图谱里。
+- DSH 读取 `DSH_HOME/skills`（默认 `~/.dsh/skills`）、`DSH_AGENTS_HOME/skills`（默认 `~/.agents/skills`）、`DSH_BUNDLED_SKILL_DIR`，以及项目祖先目录里的 `.dsh/skills` 和 `.agents/skills`。项目目录可通过 `SKILL_LIBRARY_PROJECT` 明确传入，默认使用宿主进程的工作目录。
+- 存在宿主的 `plugins/installed_plugins.json` 注册表时，也读取其中已安装插件的 `skills` 目录。列表表示这些本地 Skill 文件，实际启用状态仍由宿主管理。
+- 配置和关联分别保存在 `~/.my-skill-library/agents/<agent>/config.json` 与 `data/relations.json` 中。版本 1.1 的混合目录配置和旧关联继续保留在原位置。新版本按当前 agent 重新发现目录；如需自定义目录，在对应配置里明确设置 `"discovery": "manual"`，再填写 `skill_roots`。
+- 页面底部显示识别到的 agent；鼠标悬停扫描状态可查看实际目录。空库会显示 0 个 Skill，无法识别宿主时会提示设置 `SKILL_LIBRARY_AGENT`。
+- `SKILL_LIBRARY_HOME` 可以更改数据总目录。MCP App 的服务身份包含 agent、数据目录和工作目录，并自动选择对应端口。DSH 原生面板固定使用 18769，其 MCP 服务也固定使用同一端口。跨 agent 或跨项目的服务不会互相复用。
+- 显示偏好在宿主允许存储时保存在面板来源下，宿主隔离存储时只保留到该面板关闭。独立网页可先设置 `SKILL_LIBRARY_AGENT`，再运行 `python mcp_server.py --web`。
 
 MCP 工具有 `open_skill_graph`、`search_skills`、`get_skill`、`get_skill_neighbors`、`list_manual_relations` 和 `set_manual_relation`，以及面板专用的 `graph_snapshot`。读取完整正文时，正文会作为工具结果交给当前客户端。
 
@@ -72,7 +77,7 @@ python server.py
 
 Windows 双击 `start.bat` 会启动服务并自动打开浏览器；如果服务已经运行，会直接打开页面。保留启动窗口，按 Ctrl+C 停止服务。也可以手动打开 <http://127.0.0.1:8765>。仓库当前为私有时，克隆需要你的 GitHub 账号有访问权限。
 
-第一次启动会从 `config.example.json` 自动创建 `config.json`。默认扫描 `~/.codex/skills`。如果没有节点，先编辑配置，再点击页面右上角刷新按钮。修改监听地址或端口后需要重启服务。
+第一次启动会从 `config.example.json` 自动创建 `config.json`。默认采用当前 agent 的自动发现；独立启动时需要在进程环境中设置 `SKILL_LIBRARY_AGENT`，或按下面的示例明确指定自己的目录。修改监听地址或端口后需要重启服务。
 
 ## 2. 配置自己的 Skill 库
 
@@ -80,6 +85,7 @@ Windows 双击 `start.bat` 会启动服务并自动打开浏览器；如果服�
 
 ```json
 {
+  "discovery": "manual",
   "skill_roots": [
     "~/.codex/skills",
     "D:/my-skills"
@@ -91,6 +97,7 @@ Windows 双击 `start.bat` 会启动服务并自动打开浏览器；如果服�
 
 | 字段 | 含义 |
 | --- | --- |
+| `discovery` | `agent` 自动发现当前宿主的目录；`manual` 使用下面的 `skill_roots`。 |
 | `skill_roots` | 要递归扫描的目录数组。只读取文件名为 `SKILL.md` 的文件；不存在的目录跳过。 |
 | `host` | 默认 `127.0.0.1`，供本机访问。 |
 | `port` | 默认 `8765`；端口被占用时换一个端口。 |

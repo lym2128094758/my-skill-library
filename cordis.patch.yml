@@ -7,6 +7,14 @@
         serverName: my-skill-library
         transport: stdio
         command: python
+        env:
+          SKILL_LIBRARY_AGENT: dsh
+          SKILL_LIBRARY_PORT: '18769'
+          SKILL_LIBRARY_PROJECT: !!js process.env.SKILL_LIBRARY_PROJECT || process.cwd()
+          SKILL_LIBRARY_HOME: !!js process.env.SKILL_LIBRARY_HOME || process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').homedir(), '.my-skill-library')
+          DSH_HOME: !!js process.env.DSH_HOME || process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').homedir(), '.dsh')
+          DSH_AGENTS_HOME: !!js process.env.DSH_AGENTS_HOME || process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').homedir(), '.agents')
+          DSH_BUNDLED_SKILL_DIR: !!js process.env.DSH_BUNDLED_SKILL_DIR || ''
         args:
           - -B
           - !!js process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('dsh-my-skill-library/mcp_server.py')

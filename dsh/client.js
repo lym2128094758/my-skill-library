@@ -40,7 +40,7 @@ window.__ModuleLoader__.load({
             h("strong", null, "我的 Skill 图谱"),
             h("button", {type: "button", onClick: () => setOpen(false), "aria-label": "关闭图谱"}, "×")),
           h("iframe", {
-            src: "http://127.0.0.1:18765",
+            src: "http://127.0.0.1:18769",
             title: "二维与三维 Skill 图谱",
             sandbox: "allow-scripts allow-same-origin",
             allow: "clipboard-write",

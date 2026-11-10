@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, urlparse
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / "config.json"
 CONFIG_TEMPLATE = None
+CONFIG_RESOLVER = None
 RELATIONS_PATH = ROOT / "data" / "relations.json"
 RELATIONS_LOCK = threading.Lock()
 API_VERSION = "1.0.0"
@@ -40,6 +41,11 @@ def load_config() -> dict:
         raise OSError("Configuration must be an object with a skill_roots array")
     if any(not isinstance(root, str) or not root for root in config.get("skill_roots", [])):
         raise OSError("skill_roots must contain non-empty path strings")
+    if CONFIG_RESOLVER is not None:
+        return CONFIG_RESOLVER(config)
+    if config.get("discovery") == "agent":
+        from skill_discovery import detect_agent, project_path, resolve_config
+        return resolve_config(config, detect_agent(), project_path())
     return config
 
 
@@ -229,7 +235,14 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/skills":
             nodes, edges = scan_skills()
             manual = read_relations()
-            self.send_json({"nodes": nodes, "edges": edges + manual, "manual": manual})
+            config = load_config()
+            discovery = {
+                "agent": config.get("agent", "manual"),
+                "agent_label": config.get("agent_label", "自定义目录"),
+                "mode": config.get("discovery", "manual"),
+                "roots": config.get("skill_roots", []),
+            }
+            self.send_json({"nodes": nodes, "edges": edges + manual, "manual": manual, "discovery": discovery})
             return
         if parsed.path == "/api/skill":
             skill_id = parse_qs(parsed.query).get("id", [""])[0]

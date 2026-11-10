@@ -6,7 +6,7 @@ exports.name = "my-skill-library-panel";
 exports.apply = function apply(ctx) {
   return ctx.effect(() => {
     const child = spawn("python", ["-B", join(__dirname, "..", "mcp_server.py"), "--serve"], {
-      env: {...process.env, SKILL_LIBRARY_PORT: "18765"},
+      env: {...process.env, SKILL_LIBRARY_AGENT: "dsh", SKILL_LIBRARY_PORT: "18769"},
       windowsHide: true,
       stdio: ["pipe", "pipe", "pipe"],
     });

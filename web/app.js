@@ -133,7 +133,13 @@
       if (!state.nodes.some((n)=>n.id===state.selectedId)) { state.selectedId=null;state.mode="global";$("detailPanel").hidden=true; }
       [...new Set(state.nodes.map((n)=>n.group))].sort().forEach((group,index)=>state.colorMap.set(group,palette[index%palette.length]));
       $("skillCount").textContent = state.nodes.length;
-      $("scanStatus").textContent = "已扫描 "+state.nodes.length+" 个 Skill";
+      const discovery = data.discovery;
+      const agentLabel = discovery?.agent_label;
+      $("scanStatus").textContent = (agentLabel ? agentLabel+" · " : "")+"已扫描 "+state.nodes.length+" 个 Skill";
+      $("scanStatus").title = discovery?.roots?.length ? discovery.roots.join("\n") : "当前宿主尚未发现 Skill 目录";
+      if (discovery?.agent === "unknown" && !state.nodes.length) {
+        $("scanStatus").textContent = "未识别 agent，请设置 SKILL_LIBRARY_AGENT";
+      }
       buildGroups(); buildColors(); rebuild(true);
     } catch (error) { $("scanStatus").textContent=error.message; $("graphSummary").textContent="扫描失败，点击刷新重试"; }
     finally { if (version === state.request) $("refreshButton").disabled=false; }

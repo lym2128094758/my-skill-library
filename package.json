@@ -1,6 +1,6 @@
 {
   "name": "dsh-my-skill-library",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Browse local Agent Skills in an interactive 2D/3D graph from DeepSeek Harness.",
   "repository": "https://github.com/lym2128094758/my-skill-library",
   "main": "./dsh/index.cjs",
@@ -15,6 +15,7 @@
     "dsh/",
     "mcp_server.py",
     "mcp_ui.py",
+    "skill_discovery.py",
     "server.py",
     "config.example.json",
     "plugin-config.example.json",

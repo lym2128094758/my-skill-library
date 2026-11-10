@@ -17,9 +17,10 @@ from urllib.request import ProxyHandler, Request, build_opener
 
 import server
 import mcp_ui
+from skill_discovery import LABELS, PORTS, detect_agent, project_path, resolve_config
 
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 PROTOCOLS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
 IDENTITY_HEADER = "X-My-Skill-Library"
 OPENER = build_opener(ProxyHandler({}))
@@ -55,13 +56,25 @@ class PluginHandler(server.Handler):
 
 class Library:
     def __init__(self):
-        self.home = Path(os.environ.get("SKILL_LIBRARY_HOME") or Path.home() / ".my-skill-library").expanduser().resolve()
-        self.port = int(os.environ.get("SKILL_LIBRARY_PORT", "18765"))
+        self.agent = detect_agent()
+        self.project = project_path()
+        base = Path(os.environ.get("SKILL_LIBRARY_HOME") or Path.home() / ".my-skill-library").expanduser().resolve()
+        self.home = base / "agents" / self.agent
+        context = f"{VERSION}|{self.agent}|{self.home}|{self.project}"
+        self.identity = hashlib.sha256(os.fsencode(os.path.normcase(context))).hexdigest()
+        default_port = PORTS[self.agent] if self.agent == "dsh" else 22000 + int(self.identity[:8], 16) % 30000
+        self.port = int(os.environ.get("SKILL_LIBRARY_PORT", str(default_port)))
         if not 1 <= self.port <= 65535:
             raise ValueError("SKILL_LIBRARY_PORT must be between 1 and 65535.")
         self.url = f"http://127.0.0.1:{self.port}"
-        self.identity = hashlib.sha256(os.fsencode(os.path.normcase(str(self.home)))).hexdigest()
         self.http = None
+
+    def identify(self, client_name):
+        agent = detect_agent(client_name)
+        if self.agent == "unknown" and agent != "unknown":
+            # Initialization happens before any tool starts the HTTP service.
+            os.environ["SKILL_LIBRARY_AGENT"] = agent
+            self.__init__()
 
     def request(self, path, method="GET", body=None, timeout=30):
         headers = {"Content-Type": "application/json"} if body is not None else {}
@@ -94,6 +107,7 @@ class Library:
         try:
             server.CONFIG_PATH = self.home / "config.json"
             server.CONFIG_TEMPLATE = server.ROOT / "plugin-config.example.json"
+            server.CONFIG_RESOLVER = lambda config: resolve_config(config, self.agent, self.project)
             server.RELATIONS_PATH = self.home / "data" / "relations.json"
             server.load_config()
             http.library_identity = self.identity
@@ -193,7 +207,7 @@ def validate_arguments(arguments, spec):
 
 def call_tool(library, name, args):
     if name == "open_skill_graph":
-        return {"message": "The Skill Library graph is available in the app panel on hosts that render MCP Apps."}
+        return {"message": f"{LABELS[library.agent]} Skill Library is available in the app panel on hosts that render MCP Apps."}
     library.ensure_running()
     if name == "graph_snapshot":
         return library.request("/api/skills")
@@ -217,7 +231,7 @@ def call_tool(library, name, args):
         matches.sort(key=lambda node: (node["name"].casefold(), node["id"]))
         offset, limit = args.get("offset", 0), args.get("limit", 25)
         end = offset + limit
-        return {"total": len(matches), "skills": matches[offset:end],
+        return {"total": len(matches), "skills": matches[offset:end], "discovery": graph.get("discovery"),
                 "next_offset": end if end < len(matches) else None}
 
     nodes = {node["id"]: node for node in graph["nodes"]}
@@ -237,6 +251,7 @@ def call_tool(library, name, args):
 
 def dispatch(library, method, params):
     if method == "initialize":
+        library.identify(params.get("clientInfo", {}).get("name", ""))
         requested = params.get("protocolVersion")
         return {
             "protocolVersion": requested if requested in PROTOCOLS else PROTOCOLS[0],

@@ -49,7 +49,7 @@
 
   const ready = request("ui/initialize", {
     protocolVersion: "2026-01-26",
-    appInfo: {name: "my-skill-library", version: "1.1.0"},
+    appInfo: {name: "my-skill-library", version: "1.2.0"},
     appCapabilities: {availableDisplayModes: ["inline", "fullscreen"]},
   }, 10000).then(result => {
     updateContext(result.hostContext);
