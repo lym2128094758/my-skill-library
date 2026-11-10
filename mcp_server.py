@@ -20,7 +20,7 @@ import mcp_ui
 from skill_discovery import LABELS, PORTS, detect_agent, project_path, resolve_config
 
 
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 PROTOCOLS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
 IDENTITY_HEADER = "X-My-Skill-Library"
 OPENER = build_opener(ProxyHandler({}))

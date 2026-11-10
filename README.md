@@ -14,6 +14,8 @@
 
 插件需要 Python 3.10+，并要求客户端可以从 `PATH` 启动 `python`。面板的 HTML、CSS、D3 和图谱脚本随插件打包，数据通过宿主的 MCP 通道读写。各平台的安装清单会传入当前 agent 的标识，再根据安装者的用户目录和环境变量发现 Skill。
 
+界面跟随宿主的浅色／深色主题。DSH 原生入口、面板和图谱读取 DSH 的主题色，MCP App 读取宿主提供的主题上下文。宿主未提供强调色时使用中性色。节点分组颜色仍可按来源自定义。
+
 ### Codex
 
 ```sh
@@ -27,7 +29,7 @@ codex plugin add my-skill-library@my-skill-library-marketplace
 
 ### Claude Desktop 应用内图谱
 
-在 [GitHub Releases](https://github.com/lym2128094758/my-skill-library/releases/tag/v1.2.0) 下载 `my-skill-library-1.2.0.mcpb`，到 Claude Desktop 的「设置 → 扩展 → 高级设置 → 安装扩展」选择这个文件。安装后开始新对话，说「打开我的 Skill 图谱」。面板通过 MCP Apps 渲染。Claude Desktop 扩展与下面的 Claude Code 插件分别安装。
+在 [GitHub Releases](https://github.com/lym2128094758/my-skill-library/releases/tag/v1.2.1) 下载 `my-skill-library-1.2.1.mcpb`，到 Claude Desktop 的「设置 → 扩展 → 高级设置 → 安装扩展」选择这个文件。安装后开始新对话，说「打开我的 Skill 图谱」。面板通过 MCP Apps 渲染。Claude Desktop 扩展与下面的 Claude Code 插件分别安装。
 
 也可在源码目录执行 `python scripts/package_plugin.py --output ./dist` 自行生成扩展包。打包脚本只收集运行所需的程序和前端资源。
 

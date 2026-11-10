@@ -1,13 +1,26 @@
 :root {
-  color-scheme: light;
-  --paper: #fbfbfa;
-  --surface: #fff;
-  --line: #e8e8e7;
-  --ink: #262725;
-  --muted: #858781;
-  --soft: #f4f4f1;
-  --accent: #617b71;
+  color-scheme: light dark;
+  --paper: var(--color-background-secondary, #fafafa);
+  --surface: var(--color-background-primary, #ffffff);
+  --line: var(--color-border-primary, #e5e5e5);
+  --ink: var(--color-text-primary, #262626);
+  --muted: var(--color-text-secondary, #737373);
+  --soft: var(--color-background-tertiary, #f4f4f5);
+  --accent: var(--color-text-info, #52525b);
+  --accent-soft: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  --accent-ink: var(--surface);
+  --sphere-center: color-mix(in srgb, var(--surface) 93%, var(--accent));
+  --sphere-edge: var(--paper);
   --font: "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+}
+:root[data-theme="dark"] {
+  --paper: var(--color-background-secondary, #18181b);
+  --surface: var(--color-background-primary, #202023);
+  --line: var(--color-border-primary, #3f3f46);
+  --ink: var(--color-text-primary, #f4f4f5);
+  --muted: var(--color-text-secondary, #a1a1aa);
+  --soft: var(--color-background-tertiary, #2c2c30);
+  --accent: var(--color-text-info, #d4d4d8);
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -274,3 +287,61 @@ kbd { padding: 1px 5px; border: 1px solid #ececea; border-radius: 3px; color: #a
   .workspace { grid-template-columns:1fr; }
   .settings-panel { right:8px;width:min(285px,calc(100vw - 35px)); }
 }
+
+/* Shared semantic colors for standalone, MCP App and native host panels. */
+.topbar,.graph-shell,.graph-stage,.searchbox,.secondary-button { background:var(--surface); }
+.sidebar,.settings-panel,.panel-heading,.content-preview { background:var(--paper); }
+.settings-panel,.detail-panel,.node-tooltip,.sphere-tooltip,.graph-tools {
+  background:color-mix(in srgb,var(--surface) 96%,transparent);
+  border-color:var(--line);
+}
+.brand,.tab.active,.node-tooltip strong,.empty-state h3,.skill-list-item,
+.setting-section summary,.detail-metrics strong { color:var(--ink); }
+.eyebrow,.icon-button,.count-pill,.searchbox,.searchbox input::placeholder,kbd,.tab,
+.list-title,.text-button,.group-item,.group-num,.library-stat,.sidebar-bottom p,
+.graph-heading p,.graph-tools button,.graph-footnote,.graph-status,
+.graph-status #activeFilter,.connect-hint,.connect-hint button,.node-tooltip span,
+.empty-state,.empty-state p,.setting-section h3,.setting-row,.range-row,
+.setting-section output,.setting-note,.detail-group,.detail-description,.secondary-button,
+.detail-metrics span,.detail-subheading h3,.detail-subheading span,.content-preview,
+.source-fold summary,.range-row output { color:var(--muted); }
+.count-pill,.detail-group,.group-item:hover,.skill-list-item:hover,
+.secondary-button:hover,.graph-tools button:hover { background:var(--soft); }
+.sidebar-bottom,.skill-list,.searchbox,kbd,.graph-tools,.tool-divider,.graph-status,
+.panel-heading,.setting-section,.detail-top,.primary-button,.secondary-button,
+.detail-metrics div,.content-preview,.empty-orbit { border-color:var(--line); }
+.searchbox:focus-within { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft); }
+.tab.active::after,.brand-mark i,.stat-dot { background:var(--accent); }
+.brand-mark i:nth-child(4) { background:var(--muted); }
+.stat-dot { box-shadow:0 0 0 3px var(--accent-soft); }
+.group-item input,.setting-row input,.range { accent-color:var(--accent); }
+.text-button:hover,.neighbor-button,.skill-list-item[aria-pressed="true"],
+.graph-tools button.active { color:var(--accent); }
+.neighbor-button,.skill-list-item[aria-pressed="true"],.graph-tools button.active,
+.connect-hint { background:var(--accent-soft); border-color:var(--line); }
+.neighbor-button:hover { background:var(--soft); }
+.primary-button { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+.primary-button:hover { background:color-mix(in srgb,var(--accent) 85%,var(--ink)); }
+.empty-orbit::before,.empty-orbit::after,.legend-line.manual { background:var(--accent); }
+.legend-line { background:var(--line); }
+.legend-line.topic { background:repeating-linear-gradient(to right,var(--line) 0 3px,transparent 3px 6px); }
+.tool-divider { background:var(--line); }
+.graph-node text { fill:var(--muted); stroke:var(--surface); }
+.graph-node.selected .node-core { fill:var(--accent); }
+.graph-node.selected .node-halo,.graph-node:focus .node-halo,
+.graph-node.connect-first .node-halo { stroke:var(--accent); }
+.graph-link { stroke:var(--line); }
+.graph-link.manual,.graph-link.active { stroke:var(--accent); }
+.graph-stage.sphere-active { background:radial-gradient(ellipse at center,var(--sphere-center),var(--sphere-edge)); }
+.graph-shell .view-switch,.graph-shell:has(.sphere-active) .view-switch {
+  border-color:var(--line);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--soft) 85%,transparent),color-mix(in srgb,var(--line) 65%,transparent));
+}
+.graph-shell .view-lens,.graph-shell:has(.sphere-active) .view-lens {
+  background:linear-gradient(180deg,color-mix(in srgb,var(--surface) 95%,transparent),color-mix(in srgb,var(--surface) 65%,transparent));
+}
+.graph-shell .view-button,.graph-shell:has(.sphere-active) .view-button { color:var(--muted); }
+.graph-shell .view-button.active,.graph-shell .view-button:hover:not(:disabled),
+.graph-shell:has(.sphere-active) .view-button.active,
+.graph-shell:has(.sphere-active) .view-button:hover:not(:disabled) { color:var(--ink); }
+.view-button:focus-visible { outline-color:var(--accent); }

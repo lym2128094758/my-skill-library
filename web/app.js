@@ -4,7 +4,8 @@
   const requestLibrary = window.skillLibraryFetch ?? window.fetch.bind(window);
   const storage = () => window.skillLibraryStorage ?? window.localStorage;
   const model = window.SkillGraphModel;
-  const palette = ["#718f7f","#8c9fb5","#bf9279","#a78baf","#7d9fa1","#b4a36f","#8297b3","#a88787","#7d9a81"];
+  const palette = ["#8c9fb5","#a78baf","#bf9279","#7d9fa1","#b4a36f","#8297b3","#a88787","#7d9a81"];
+  const themeColor = token => window.SkillLibraryTheme?.color(token) || "#737373";
   const defaults = {showOrphans:true,showMentions:true,showTopics:false,showManual:true,focusOnHover:true,
     showLabels:true,scaleNodes:true,colorBySource:false,showArrows:false,depth:1,labelThreshold:1.1,
     nodeSize:1,linkWidth:.8,centerForce:.04,repelForce:150,linkStrength:.35,linkDistance:90};
@@ -112,7 +113,7 @@
       }
     }
   }
-  function color(node) { return settings.colorBySource ? (customColors[node.group] || state.colorMap.get(node.group) || "#777") : "#606060"; }
+  function color(node) { return settings.colorBySource ? (customColors[node.group] || state.colorMap.get(node.group) || themeColor("--muted")) : themeColor("--muted"); }
   function radius(node) { return settings.nodeSize * (settings.scaleNodes ? Math.min(9,3.5+Math.sqrt(state.degree.get(node.id)||0)*.85) : 4); }
   function visibleRadius(node) { return Math.max(radius(node), 3 * settings.nodeSize / state.transform.k); }
   function options() {
@@ -198,7 +199,7 @@
       syncSphereAppearance();
     }
   }
-  function colorMapSphere(node){return settings.colorBySource?(customColors[node.group]||state.colorMap.get(node.group)||"#98e6cf"):"#98e6cf";}
+  function colorMapSphere(node){return settings.colorBySource?(customColors[node.group]||state.colorMap.get(node.group)||themeColor("--accent")):themeColor("--accent");}
   function syncSphereAppearance(){
     sphere.appearance(settings);
     sphere.labels(settings.showLabels);
@@ -501,5 +502,9 @@
       if(graphDimension==="plane"){configureForces();fitGraph(false);}
     },120);
   }).observe($("graphStage"));
+  window.addEventListener("skill-library-theme", () => {
+    updateAppearance();
+    if (sphere) syncSphereAppearance();
+  });
   syncControls();loadLibrary();
 })();

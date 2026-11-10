@@ -27,7 +27,8 @@
     function draw(frame){
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
       const bg=ctx.createRadialGradient(w/2,h/2,0,w/2,h/2,Math.max(w,h)*.7);
-      bg.addColorStop(0,color('#ffffff','#12313b',frame.sphere));bg.addColorStop(1,color('#ffffff','#071923',frame.sphere));
+      const theme=root.SkillLibraryTheme, surface=theme?.color('--surface')||'#ffffff';
+      bg.addColorStop(0,color(surface,theme?.color('--sphere-center')||'#f4f4f5',frame.sphere));bg.addColorStop(1,color(surface,theme?.color('--sphere-edge')||'#fafafa',frame.sphere));
       ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
       for(const e of frame.edges){
         ctx.lineWidth=e.width;ctx.strokeStyle=e.color;
@@ -41,7 +42,7 @@
       for(const n of frame.nodes){
         ctx.globalAlpha=n.alpha;ctx.fillStyle=n.color;ctx.beginPath();ctx.arc(n.x,n.y,Math.max(.1,n.radius),0,Math.PI*2);ctx.fill();
         if(n.selected){ctx.strokeStyle=n.color;ctx.lineWidth=1;ctx.beginPath();ctx.arc(n.x,n.y,n.radius+3,0,Math.PI*2);ctx.stroke();}
-        if(n.labelAlpha){ctx.globalAlpha=n.alpha*n.labelAlpha;ctx.font=`${n.labelSize||11}px ${n.labelFamily||'Microsoft YaHei,sans-serif'}`;ctx.fillStyle=color('#555555','#e0f5e8',frame.sphere);ctx.fillText(n.name,(n.labelX??n.x+8)-ctx.measureText(n.name).width*(n.labelAlign||0),n.labelY??n.y-8);}
+        if(n.labelAlpha){ctx.globalAlpha=n.alpha*n.labelAlpha;ctx.font=`${n.labelSize||11}px ${n.labelFamily||'Microsoft YaHei,sans-serif'}`;ctx.fillStyle=root.SkillLibraryTheme?.color('--ink')||'#737373';ctx.fillText(n.name,(n.labelX??n.x+8)-ctx.measureText(n.name).width*(n.labelAlign||0),n.labelY??n.y-8);}
       }
       ctx.globalAlpha=1;
     }
